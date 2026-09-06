@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# PRIVACY: personal health exports must never be committed to this repository.
+# This repo is public and hosts dashboard code only. Every measurement stays
+# on the iPhone in Safari's IndexedDB, plus any private backup you keep in
+# iCloud Drive.
+# ---------------------------------------------------------------------------
+initial_health_data_private.json
+*health*private*.json
+*private*health*.json
+body-dashboard-backup-*.json
+apple_health_export/
+export.zip
+export.xml
+export_cda.xml
+*.csv
+*.tsv
+
+# Local tooling / OS noise
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*

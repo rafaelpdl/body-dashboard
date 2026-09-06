@@ -1,0 +1,5 @@
+# Example only - synthetic values, not real measurements.
+# One line per Apple Health sample, sent inside the URL fragment:
+#   <W|B>|<ISO 8601 start date>|<value>|<source>
+W|2001-02-03T08:00:00-03:00|70.5|Example Scale
+B|2001-02-03T08:00:00-03:00|18.0|Example Scale
