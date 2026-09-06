@@ -123,6 +123,7 @@ merge-and-deduplicate, so it is safe to restore on top of existing data.
 | `sw.js` | offline cache for the dashboard's *own code* (never for data) |
 | `manifest.webmanifest` | deliberately `display: browser` — see above |
 | `icons/` | Home Screen / tab icons |
+| `.nojekyll` | tells GitHub Pages to serve the files as-is |
 | `tests/run-tests.mjs` | headless validation suite (see below) |
 | `SHORTCUT_SETUP.md` | how to build the Apple Shortcut |
 | `DEPLOY_GITHUB_PAGES.md` | how the site is published |
