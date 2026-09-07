@@ -38,6 +38,21 @@ belongs.
 want from the suggestion row just above the keyboard. If the one you need isn't there,
 tap the ⌥/*Select Variable* button in that row and pick it from the list.
 
+**4. Two variable chips Shortcuts fills in wrong.** Shortcuts guesses an input for each
+new action, and inside a loop it guesses badly. Check both of these every time:
+
+- **Repeat Item, never Repeat Results.** *Repeat Item* is the one sample this pass of the
+  loop is handling. *Repeat Results* is the collected output of the whole finished loop,
+  so using it inside the loop reads something that does not exist yet. Shortcuts often
+  auto-fills *Repeat Results* — tap the chip and change it to **Repeat Item**.
+- **The plain Text, not its Name.** In *Add to Variable*, the chip must be the Text action's
+  own output. If it reads *Name*, Shortcuts attached a file-property accessor to it and
+  will store the wrong thing. Tap the chip and clear the property back to the whole value,
+  or delete the chip and re-insert **Text** from the suggestion row.
+
+A chip is changed the same way in both cases: tap it, then pick the variable (or the
+property) you actually want.
+
 ## The finished Shortcut
 
 Build it in this order. Actions 3–7 sit **inside** the first Repeat; actions 10–14 sit
@@ -47,11 +62,11 @@ Build it in this order. Actions 3–7 sit **inside** the first Repeat; actions 1
 | --- | --- | --- |
 | 1 | Find Health Samples | Type **Weight**, Start Date **is in the last 30 days**, Unit **kg**, Sort by **Start Date**, Order **Oldest First**, Limit **off** |
 | 2 | Repeat with Each | Input: **Health Samples** (auto-filled) |
-| 3 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** |
+| 3 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** ← *not* Repeat Results |
 | 4 | ‎ ‎ Format Date | Input: the **Start Date** from #3, Date Format **ISO 8601**, Include ISO 8601 Time **on** |
-| 5 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** |
+| 5 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** ← *not* Repeat Results |
 | 6 | ‎ ‎ Text | `W` `\|` *Formatted Date* `\|` *Value* |
-| 7 | ‎ ‎ Add to Variable | Variable name **Lines** |
+| 7 | ‎ ‎ Add to Variable | Add the plain **Text** (not its *Name*), to variable **Lines** |
 | 8 | *(End Repeat)* | — |
 | 9 | Find Health Samples | Type **Body Fat Percentage**, Start Date **is in the last 30 days**, Sort by **Start Date**, Order **Oldest First** |
 | 10 | Repeat with Each | Input: **Health Samples** (the second one) |
@@ -59,7 +74,7 @@ Build it in this order. Actions 3–7 sit **inside** the first Repeat; actions 1
 | 12 | ‎ ‎ Format Date | Date Format **ISO 8601**, Include ISO 8601 Time **on** |
 | 13 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** |
 | 14 | ‎ ‎ Text | `B` `\|` *Formatted Date* `\|` *Value* |
-| 15 | ‎ ‎ Add to Variable | Variable name **Lines** (the same one) |
+| 15 | ‎ ‎ Add to Variable | Add the plain **Text** to the same variable **Lines** |
 | 16 | *(End Repeat)* | — |
 | 17 | Combine Text | Input **Lines**, Separator **New Lines** |
 | 18 | URL Encode | Input: the **Combined Text** |
@@ -90,9 +105,11 @@ Everything in steps 3–7 goes in that gap, which is where Shortcuts will put th
 automatically as long as you keep adding actions one after another.
 
 **3. Get the date.** Search `get details of health`, tap **Get Details of Health
-Sample**. It should read *"Get Start Date of Repeat Item"*. If the detail isn't
-**Start Date**, tap it and change it; if the input isn't **Repeat Item**, tap it and
-pick Repeat Item.
+Sample**. It must read *"Get **Start Date** from **Repeat Item**"*.
+
+Shortcuts will very likely fill the input with **Repeat Results** instead. That is the
+wrong variable — tap the red *Repeat Results* chip and choose **Repeat Item**. Change the
+detail to **Start Date** too if it came in as something else.
 
 **4. Format the date.** Search `format date`, tap **Format Date**. Tap its input and
 choose the output of #3 (offered as *Start Date* or *Health Sample Detail*). Then tap
@@ -102,7 +119,8 @@ This step is not optional. Any other format is a localised date the dashboard ca
 read.
 
 **5. Get the value.** Search `get details of health` again, tap **Get Details of Health
-Sample**, set **Detail** → **Value**, input **Repeat Item**.
+Sample**, set **Detail** → **Value**. Check the input here too — it must be
+**Repeat Item**, not *Repeat Results*.
 
 **6. Build the line.** Search `text`, tap **Text**. In the field, type `W` then `|`, tap
 the **Formatted Date** variable, type `|`, tap the **Value** variable. It should look
@@ -110,8 +128,13 @@ like:
 
 `W|Formatted Date|Value`
 
-**7. Collect the line.** Search `add to variable`, tap **Add to Variable**. Its input is
-already the Text from #6. Tap the variable-name field and type `Lines`.
+**7. Collect the line.** Search `add to variable`, tap **Add to Variable**. Type `Lines`
+as the variable name.
+
+Check the chip being added: it must be the plain **Text**. If it says **Name**, Shortcuts
+has attached a property accessor and would store a filename instead of your line — tap the
+chip and clear the property, or delete it and re-insert **Text** from the suggestion row
+above the keyboard.
 
 Part A is done. On screen you should see the Repeat block containing five actions.
 
@@ -162,7 +185,12 @@ confirm it goes up afterwards. If the charts don't change, see below.
 
 ## If something goes wrong
 
-**Nothing imports / the count doesn't move.** Almost always the date format. Temporarily
+**Every line is identical, empty, or looks like a filename.** One of the two chips from
+the *Before you start* section is wrong: *Repeat Results* where it should be *Repeat Item*,
+or *Name* where it should be the plain *Text*. Expand each action inside the loop and
+check them.
+
+**Nothing imports / the count doesn't move.** Usually the date format. Temporarily
 add a **Quick Look** action after #17 and run again: each line must look like
 `W|2026-09-07T08:25:16-03:00|81.2`. If the date reads like *"7 Sept 2026 at 08:25"*,
 go back to #4 and set Date Format to ISO 8601 with the time toggle on.
