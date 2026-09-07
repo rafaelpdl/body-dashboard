@@ -77,6 +77,10 @@ function normalizeRecord(r) {
   if (!Number.isFinite(value)) return null;
   // Body fat expressed as a fraction (0.185) becomes percentage points (18.5).
   if (type === 'bodyFat' && value > 0 && value <= 1) value *= 100;
+  // Apple Health stores quantities as 32-bit floats, so Shortcuts hands over
+  // values like 83.90000152587891. Three decimals is far finer than any scale
+  // reports and keeps exported backups readable.
+  value = Math.round(value * 1000) / 1000;
   const timestamp = normalizeTimestamp(r.timestamp ?? r.date ?? r.startDate);
   if (!timestamp) return null;
   const instant = Date.parse(timestamp);

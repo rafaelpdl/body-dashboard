@@ -147,7 +147,15 @@ inside it.
 **9. Find Health Samples** again, this time **Type → Body Fat Percentage**, same
 30-day filter, same sorting.
 
-**10–15.** Repeat steps 2–7 exactly, with one change: in the Text action write **`B`**
+**10. Repeat with Each — and check which Health Samples it uses.** Both Find actions
+produce a variable called **Health Samples**, and Shortcuts will happily point the second
+loop at the *first* one. Tap the chip and pick the Health Samples belonging to the **Body
+Fat Percentage** action directly above it.
+
+Get this wrong and the shortcut runs perfectly while emitting `B|` lines carrying weight
+values — see the troubleshooting note below.
+
+**11–15.** Repeat steps 3–7 exactly, with one change: in the Text action write **`B`**
 instead of `W`:
 
 `B|Formatted Date|Value`
@@ -202,6 +210,22 @@ top.
 **Only weight appears, no body fat.** The second half's actions probably landed inside
 the first loop, or `Lines` was spelled differently the second time. Check the indentation
 and the variable name.
+
+**`B|` lines carry weight numbers** (e.g. `B|2026-08-08T10:55:47-03:00|83.9` when your
+body fat is around 23 %). The second **Repeat with Each** is iterating the *first* Find
+action's samples — both are named *Health Samples*, and Shortcuts picks the wrong one by
+default. Tap that chip and select the Health Samples produced by the Body Fat Percentage
+action.
+
+Quickest confirmation: look for a `W|` line with the **same timestamp and the same
+number**. If the pair exists, the second loop is reading weight.
+
+Nothing is corrupted while this is wrong. The dashboard rejects any body-fat reading above
+80 %, so those lines are dropped on import rather than stored — you would just see weight
+charts fill in and the body-fat chart stay empty.
+
+**Values arrive as `83.90000152587891`.** That is normal and nothing to fix. Apple Health
+stores quantities as 32-bit floats; the dashboard rounds them on import.
 
 **Nothing at all happens on the first run.** The Health permission prompt may have been
 dismissed. Delete the Shortcut's health access under

@@ -126,6 +126,11 @@ const parser = await page.evaluate(() => ({
   rejectsGarbageType: normalizeRecord({ type: 'steps', timestamp: '2001-01-01T08:00:00Z', value: 80 }),
   rejectsBadDate: normalizeRecord({ type: 'weight', timestamp: 'yesterday', value: 80 }),
   rejectsOutOfRange: normalizeRecord({ type: 'weight', timestamp: '2001-01-01T08:00:00Z', value: 900 }),
+  // a weight value leaking into a "B|" line must never be stored as body fat
+  rejectsWeightAsBodyFat: normalizeRecord({ type: 'bodyFat', timestamp: '2001-01-01T08:00:00Z', value: 83.90000152587891 }),
+  floatNoiseWeight: normalizeRecord({ type: 'weight', timestamp: '2001-01-01T08:00:00Z', value: 83.90000152587891 }).value,
+  floatNoiseFat: normalizeRecord({ type: 'bodyFat', timestamp: '2001-01-01T08:00:00Z', value: 22.900000762939453 }).value,
+  floatNoiseFraction: normalizeRecord({ type: 'bodyFat', timestamp: '2001-01-01T08:00:00Z', value: 0.22900000762939453 }).value,
   hkAlias: normalizeRecord({ type: 'HKQuantityTypeIdentifierBodyMass', timestamp: '2001-01-01T08:00:00Z', value: 80 })?.type,
   // same instant written three different ways must collapse to one id
   idOffset: normalizeRecord({ type: 'weight', timestamp: '2001-01-01T08:00:00-03:00', value: 80.7, source: 'S' }).id,
@@ -149,6 +154,10 @@ check('date-only timestamp accepted', parser.dateOnly);
 check('unknown metric rejected', parser.rejectsGarbageType === null);
 check('unparseable date rejected', parser.rejectsBadDate === null);
 check('implausible weight rejected', parser.rejectsOutOfRange === null);
+check('a weight value in a body-fat line is rejected, not stored', parser.rejectsWeightAsBodyFat === null);
+check('32-bit float noise is rounded off (weight)', parser.floatNoiseWeight === 83.9, String(parser.floatNoiseWeight));
+check('32-bit float noise is rounded off (body fat)', parser.floatNoiseFat === 22.9, String(parser.floatNoiseFat));
+check('float noise rounded after fraction conversion', parser.floatNoiseFraction === 22.9, String(parser.floatNoiseFraction));
 check('Apple Health type identifier accepted', parser.hkAlias === 'weight');
 check('same instant, different offset -> same id', parser.idOffset === parser.idZulu, `${parser.idOffset} vs ${parser.idZulu}`);
 check('same instant, rounded value -> same id', parser.idOffset === parser.idRounded);
