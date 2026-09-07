@@ -387,12 +387,174 @@ check('fat-only mode disables the axis selector', axes.fatOnly.axisDisabled);
 check('lean-only mode hides the fat line', !axes.leanOnly.fat && axes.leanOnly.lean);
 check('both mode restores the two lines', axes.bothAgain.fat && axes.bothAgain.lean);
 
+console.log('\n9b. Change-over-time charts');
+const deltas = await page.evaluate(() => {
+  const out = {};
+  const mk = (arr) => arr.map(([date, value]) => ({ date, value }));
+  const d = deltaSeries(mk([['2001-01-01', 10], ['2001-01-02', 12], ['2001-01-03', 11.5], ['2001-01-04', 11.5]]));
+  out.values = d.map(x => Number(x.value.toFixed(4)));
+  out.dates = d.map(x => x.date);
+  out.singlePoint = deltaSeries(mk([['2001-01-01', 10]])).length;
+  out.empty = deltaSeries([]).length;
+  // a gap in the source must not invent a delta
+  out.comp = deltaComposition([{ date: 'a', fat: 10, lean: 60 }, { date: 'b', fat: 11, lean: 59 },
+                               { date: 'c', fat: null, lean: 58 }])
+             .map(x => [x.fat, x.lean]);
+  // the change scale must always contain zero
+  const s1 = deltaScale([2, 3, 4]), s2 = deltaScale([-4, -3]), s3 = deltaScale([]);
+  out.scaleAllPositive = [s1.lo <= 0, s1.hi > 0];
+  out.scaleAllNegative = [s2.lo < 0, s2.hi >= 0];
+  out.scaleEmptyFinite = Number.isFinite(s3.lo) && Number.isFinite(s3.hi);
+  // selective labelling
+  out.labelsFew = labelIndexes([1, -2, 3], 3).length;
+  out.labelsMany = labelIndexes(Array.from({ length: 100 }, (_, i) => i === 7 ? 9 : i === 40 ? -9 : 0), 100).sort();
+  out.fmt = [fmtDelta(0.25, 'kg'), fmtDelta(-0.25, 'kg'), fmtDelta(0, 'kg'), fmtDelta(null, 'kg')];
+  return out;
+});
+check('delta is the difference from the previous period',
+  JSON.stringify(deltas.values) === JSON.stringify([2, -0.5, 0]), JSON.stringify(deltas.values));
+check('each delta is dated to the later period', deltas.dates[0] === '2001-01-02');
+check('a single period yields no change points', deltas.singlePoint === 0);
+check('an empty series yields no change points', deltas.empty === 0);
+check('composition deltas are computed per series', JSON.stringify(deltas.comp[0]) === JSON.stringify([1, -1]));
+check('a gap produces a null, never a fabricated change', deltas.comp[1][0] === null && deltas.comp[1][1] === -1);
+check('change scale includes zero when all values are positive', deltas.scaleAllPositive.every(Boolean));
+check('change scale includes zero when all values are negative', deltas.scaleAllNegative.every(Boolean));
+check('change scale is finite with no data', deltas.scaleEmptyFinite);
+check('few bars are all labelled', deltas.labelsFew === 3);
+check('many bars label only the largest rise and fall',
+  JSON.stringify(deltas.labelsMany) === JSON.stringify([40, 7].sort()), JSON.stringify(deltas.labelsMany));
+check('delta readout is signed', JSON.stringify(deltas.fmt) ===
+  JSON.stringify(['+0.25 kg', '\u22120.25 kg', '0.00 kg', '—']), JSON.stringify(deltas.fmt));
+
+// The rendered charts
+await page.selectOption('#range', 'all');
+for (const mode of ['daily', 'r7', 'r30', 'monthly', 'quarterly', 'yearly']) {
+  await page.selectOption('#aggregation', mode);
+  const r = await page.evaluate(() => ({
+    periods: filterRange(aggregateSeries(dailyMetric('weight'), controls.aggregation.value)).length,
+    bars: ['weightDeltaChart', 'bodyFatDeltaChart', 'compositionDeltaChart']
+      .map(id => document.getElementById(id).querySelectorAll('path[class^="bar-"]').length),
+    msg: document.getElementById('weightDeltaChart').textContent
+  }));
+  if (r.periods >= 2) {
+    check(`change charts draw bars for "${mode}"`, r.bars.every(n => n > 0), JSON.stringify(r.bars));
+  } else {
+    // the fixture spans a single calendar year, so yearly has nothing to compare
+    check(`"${mode}" with one period says so instead of drawing a bar`,
+      r.bars.every(n => n === 0) && /Two periods/.test(r.msg), JSON.stringify(r));
+  }
+}
+await page.selectOption('#aggregation', 'daily');
+
+const bars = await page.evaluate(() => {
+  const svg = document.getElementById('weightDeltaChart');
+  const zero = svg.querySelector('.zero-line');
+  const y0 = Number(zero.getAttribute('y1'));
+  const rise = [...svg.querySelectorAll('.bar-rise')];
+  const fall = [...svg.querySelectorAll('.bar-fall')];
+  const startY = (el) => Number(/^M[\d.]+ ([\d.]+)/.exec(el.getAttribute('d'))[1]);
+  const endY = (el) => {
+    const ys = [...el.getAttribute('d').matchAll(/[ML][\d.]+ ([\d.]+)/g)].map(m => Number(m[1]));
+    return Math.min(...ys.map(v => Math.abs(v - y0))) === 0 ? Math.max(...ys) : Math.min(...ys);
+  };
+  return {
+    hasZeroLine: !!zero,
+    riseCount: rise.length,
+    fallCount: fall.length,
+    everyBarStartsAtZero: [...rise, ...fall].every(el => Math.abs(startY(el) - y0) < 0.01),
+    risesGoUp: rise.every(el => endY(el) <= y0 + 0.01),
+    fallsGoDown: fall.every(el => endY(el) >= y0 - 0.01),
+    distinctFill: getComputedStyle(rise[0]).fill !== getComputedStyle(fall[0]).fill,
+    withinPlot: [...rise, ...fall].every(el => {
+      const xs = [...el.getAttribute('d').matchAll(/[MLQ]([\d.]+) /g)].map(m => Number(m[1]));
+      return Math.min(...xs) >= 54.9 && Math.max(...xs) <= 744.1;
+    })
+  };
+});
+check('change chart has a zero baseline', bars.hasZeroLine);
+check('both rises and falls are present in the sample data', bars.riseCount > 0 && bars.fallCount > 0,
+  `${bars.riseCount} up / ${bars.fallCount} down`);
+check('every bar is anchored to the zero baseline', bars.everyBarStartsAtZero);
+check('increases are drawn above the baseline', bars.risesGoUp);
+check('decreases are drawn below the baseline', bars.fallsGoDown);
+check('increase and decrease use different colours', bars.distinctFill);
+check('no bar escapes the plot area', bars.withinPlot);
+
+const compDelta = await page.evaluate(() => {
+  const svg = () => document.getElementById('compositionDeltaChart');
+  const lines = document.getElementById('compositionLines');
+  const set = (v) => { lines.value = v; lines.dispatchEvent(new Event('change')); };
+  const out = {};
+  set('both');
+  out.both = [svg().querySelectorAll('.bar-fat').length, svg().querySelectorAll('.bar-lean').length];
+  out.legendBoth = document.getElementById('compositionDeltaLegend').textContent;
+  // one shared kg scale: a single zero line, no second axis
+  out.zeroLines = svg().querySelectorAll('.zero-line').length;
+  out.sideAxes = svg().querySelectorAll('.fat-axis, .lean-axis').length;
+  set('fat');
+  out.fatOnly = [svg().querySelectorAll('.bar-fat').length, svg().querySelectorAll('.bar-lean').length];
+  set('lean');
+  out.leanOnly = [svg().querySelectorAll('.bar-fat').length, svg().querySelectorAll('.bar-lean').length];
+  set('both');
+  return out;
+});
+check('composition change draws both series', compDelta.both[0] > 0 && compDelta.both[1] > 0);
+check('composition change follows the lines-shown control',
+  compDelta.fatOnly[1] === 0 && compDelta.leanOnly[0] === 0, JSON.stringify(compDelta));
+check('composition change carries a legend for its two series',
+  /Fat mass/.test(compDelta.legendBoth) && /Lean mass/.test(compDelta.legendBoth));
+check('composition change uses one shared scale, not two axes',
+  compDelta.zeroLines === 1 && compDelta.sideAxes === 0, JSON.stringify(compDelta));
+
+// touch scrubbing on a change chart
+const deltaPoint = await (async () => {
+  const el = page.locator('#weightDeltaChart');
+  await el.scrollIntoViewIfNeeded();
+  const box = await el.boundingBox();
+  return { x: box.x + box.width * 0.35, y: box.y + box.height * 0.5 };
+})();
+const beforeDeltaDate = await page.locator('#weightDeltaDate').textContent();
+await page.touchscreen.tap(deltaPoint.x, deltaPoint.y);
+await page.waitForTimeout(150);
+const afterDelta = (await page.locator('#weightDeltaValue').textContent()).trim();
+const afterDeltaDate = await page.locator('#weightDeltaDate').textContent();
+const deltaIndex = await page.evaluate(() =>
+  Number(document.querySelector('#weightDeltaChart #hit').dataset.i));
+const deltaLen = await page.evaluate(() =>
+  filterRange(deltaSeries(aggregateSeries(dailyMetric('weight'), controls.aggregation.value))).length);
+// the fixture steps weight by exactly +0.1 a day, so every delta reads the same:
+// track the selected period instead of the number.
+check('change chart responds to touch', afterDeltaDate !== beforeDeltaDate,
+  `${beforeDeltaDate} -> ${afterDeltaDate}`);
+check('tap selects a period near 35 % across',
+  Math.abs(deltaIndex - Math.round(0.35 * (deltaLen - 1))) <= 1, `index ${deltaIndex} of ${deltaLen}`);
+check('change readout is signed and carries a unit', /^[+\u2212]?\d+\.\d+ (kg|pp)$/.test(afterDelta), afterDelta);
+check('change chart date readout is populated',
+  /\d{4}/.test(await page.locator('#weightDeltaDate').textContent()));
+
+check('empty state covers the change charts too', await page.evaluate(() => {
+  const saved = rawSamples;
+  rawSamples = [];
+  render();
+  const msg = document.getElementById('weightDeltaChart').textContent;
+  rawSamples = saved;
+  render();
+  return /Two periods/.test(msg);
+}));
+
 console.log('\n10. Data value labels');
 await page.selectOption('#labels', 'off');
 check('labels hidden by default', (await page.locator('#weightChart .data-label').count()) === 0);
 await page.selectOption('#labels', 'on');
 check('labels shown when enabled', (await page.locator('#weightChart .data-label').count()) > 0);
+const deltaLabels = await page.locator('#weightDeltaChart .data-label').count();
+check('change chart labels only the extremes when bars are dense', deltaLabels > 0 && deltaLabels <= 2,
+  String(deltaLabels));
+check('change labels are signed',
+  /^[+\u2212]/.test((await page.locator('#weightDeltaChart .data-label').first().textContent()).trim()));
 await page.selectOption('#labels', 'off');
+check('change chart labels hidden again', (await page.locator('#weightDeltaChart .data-label').count()) === 0);
 
 console.log('\n11. Touch inspection on a mobile-width viewport');
 await page.selectOption('#aggregation', 'daily');
@@ -465,6 +627,7 @@ console.log('\n12. Mobile layout sanity');
 const layout = await page.evaluate(() => ({
   docWidth: document.documentElement.scrollWidth,
   viewport: window.innerWidth,
+  chartCount: document.querySelectorAll('.chart-wrap svg').length,
   chartsWithinViewport: [...document.querySelectorAll('.chart-wrap svg')]
     .every(s => s.getBoundingClientRect().width <= window.innerWidth + 1),
   stacked: (() => {
@@ -482,6 +645,8 @@ const layout = await page.evaluate(() => ({
 check('no horizontal overflow at 390px', layout.docWidth <= layout.viewport + 1,
   `${layout.docWidth} > ${layout.viewport}`);
 check('charts fit the viewport width', layout.chartsWithinViewport);
+check('six charts are present (three metrics + three change charts)', layout.chartCount === 6,
+  String(layout.chartCount));
 check('chart cards remain vertically stacked', layout.stacked);
 check('tap targets are at least 44px tall', layout.smallestTapTarget >= 44, String(layout.smallestTapTarget));
 check('body text is at least 15px', layout.bodyFont >= 15, String(layout.bodyFont));

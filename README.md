@@ -15,6 +15,21 @@ Three vertically stacked charts, drawn from measurements stored on your own iPho
 2. **Body fat** (%)
 3. **Fat mass & lean mass** — `fat mass = weight × body-fat %`, `lean mass = weight − fat mass`
 
+Under each of those sits a **change chart**: the same metric expressed as the difference
+from one period to the next, as bars above and below a zero baseline. What it compares
+follows the aggregation control — with *Daily* selected it is day over day, with
+*7-day average* it is the change in the 7-day average, with *Monthly* it is month over
+month. Increases and decreases are drawn in two different colours, so a run of gain or
+loss reads as a block rather than needing to be traced.
+
+Two details worth knowing:
+
+- Changes are computed **before** the time range is applied, so the leftmost bar is a real
+  change from the period just before the window rather than a gap.
+- With *Show values* on, a change chart labels every bar while they still fit and
+  otherwise labels only the largest rise and the largest fall — a number on all 180 bars
+  is unreadable.
+
 Global controls:
 
 - **Aggregation** — daily · 7-day · 14-day · 30-day rolling average · weekly · monthly · quarterly · yearly.

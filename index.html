@@ -62,11 +62,27 @@
   <section class="chart-card">
     <div class="chart-head"><div><h2>Weight</h2><p id="weightSub" class="muted">—</p></div><div class="readout"><span id="weightDate">—</span><strong id="weightValue">—</strong></div></div>
     <div class="chart-wrap"><svg id="weightChart" viewBox="0 0 760 300" role="img" aria-label="Weight over time"></svg></div>
+    <div class="delta-panel">
+      <div class="delta-head">
+        <div><h3>Change in weight</h3><p id="weightDeltaSub" class="muted">&mdash;</p></div>
+        <div class="readout"><span id="weightDeltaDate">&mdash;</span><strong id="weightDeltaValue">&mdash;</strong></div>
+      </div>
+      <div class="legend" id="weightDeltaLegend"><span class="rise-key">&#9679; Increase</span><span class="fall-key">&#9679; Decrease</span></div>
+      <div class="chart-wrap"><svg id="weightDeltaChart" viewBox="0 0 760 200" role="img" aria-label="Change in weight from one period to the next"></svg></div>
+    </div>
   </section>
 
   <section class="chart-card">
     <div class="chart-head"><div><h2>Body fat</h2><p id="bodyFatSub" class="muted">—</p></div><div class="readout"><span id="bodyFatDate">—</span><strong id="bodyFatValue">—</strong></div></div>
     <div class="chart-wrap"><svg id="bodyFatChart" viewBox="0 0 760 300" role="img" aria-label="Body fat percentage over time"></svg></div>
+    <div class="delta-panel">
+      <div class="delta-head">
+        <div><h3>Change in body fat</h3><p id="bodyFatDeltaSub" class="muted">&mdash;</p></div>
+        <div class="readout"><span id="bodyFatDeltaDate">&mdash;</span><strong id="bodyFatDeltaValue">&mdash;</strong></div>
+      </div>
+      <div class="legend" id="bodyFatDeltaLegend"><span class="rise-key">&#9679; Increase</span><span class="fall-key">&#9679; Decrease</span></div>
+      <div class="chart-wrap"><svg id="bodyFatDeltaChart" viewBox="0 0 760 200" role="img" aria-label="Change in body fat from one period to the next"></svg></div>
+    </div>
   </section>
 
   <section class="chart-card">
@@ -81,6 +97,14 @@
     </div>
     <div class="legend" id="compositionLegend"><span class="fat-key">● Fat mass</span><span class="lean-key">● Lean mass</span></div>
     <div class="chart-wrap"><svg id="compositionChart" viewBox="0 0 760 320" role="img" aria-label="Fat mass and lean mass over time"></svg></div>
+    <div class="delta-panel">
+      <div class="delta-head">
+        <div><h3>Change in fat &amp; lean</h3><p id="compositionDeltaSub" class="muted">&mdash;</p></div>
+        <div class="readout"><span id="compositionDeltaDate">&mdash;</span><strong id="compositionDeltaValue">&mdash;</strong></div>
+      </div>
+      <div class="legend" id="compositionDeltaLegend"><span class="fat-key">&#9679; Fat mass</span><span class="lean-key">&#9679; Lean mass</span></div>
+      <div class="chart-wrap"><svg id="compositionDeltaChart" viewBox="0 0 760 200" role="img" aria-label="Change in fat mass and lean mass from one period to the next"></svg></div>
+    </div>
   </section>
 
   <details class="data-panel">

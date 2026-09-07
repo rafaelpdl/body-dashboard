@@ -293,8 +293,208 @@ function pathFor(points, x, y, key='value'){
   return d;
 }
 
-function emptySVG(svg, message='No measurements in this period'){
-  svg.innerHTML=`<text class="empty-chart" x="380" y="150" text-anchor="middle">${esc(message)}</text>`;
+function emptySVG(svg, message='No measurements in this period', cy=150){
+  svg.innerHTML=`<text class="empty-chart" x="380" y="${cy}" text-anchor="middle">${esc(message)}</text>`;
+}
+
+// --- period-over-period change -------------------------------------------
+// Deltas are taken on the aggregated series BEFORE the range filter, so the
+// first visible bar is a real change from the period preceding the window
+// rather than a gap.
+function deltaSeries(series){
+  const out=[];
+  for(let i=1;i<series.length;i++){
+    const a=series[i-1].value, b=series[i].value;
+    if(!Number.isFinite(a)||!Number.isFinite(b)) continue;
+    out.push({date:series[i].date, value:b-a});
+  }
+  return out;
+}
+
+function deltaComposition(series){
+  const out=[];
+  for(let i=1;i<series.length;i++){
+    const a=series[i-1], b=series[i];
+    const d=(x,y)=>(Number.isFinite(x)&&Number.isFinite(y))?y-x:null;
+    out.push({date:b.date, fat:d(a.fat,b.fat), lean:d(a.lean,b.lean)});
+  }
+  return out;
+}
+
+// A change scale always contains zero, and puts it exactly on a gridline: on a
+// diverging chart the baseline is the reference the reader measures against, so
+// it should be a labelled line rather than falling between two.
+function deltaScale(values){
+  let lo=0, hi=0;
+  for(const v of values){ if(Number.isFinite(v)){ if(v<lo)lo=v; if(v>hi)hi=v; } }
+  if(hi===0 && lo===0){ hi=0.1; lo=-0.1; }
+  const span=hi-lo;
+  const up = hi<=0 ? 0 : lo>=0 ? 4 : Math.min(3, Math.max(1, Math.round(4*hi/span)));
+  const down = 4-up;
+  const step = Math.max(up?hi/up:0, down?-lo/down:0) * 1.08 || 0.05;
+  return {lo:-down*step, hi:up*step};
+}
+
+function deltaName(mode){
+  return ({daily:'Day over day',r7:'Change in the 7-day average',r14:'Change in the 14-day average',
+           r30:'Change in the 30-day average',weekly:'Week over week',monthly:'Month over month',
+           quarterly:'Quarter over quarter',yearly:'Year over year'})[mode]||'Change';
+}
+
+function fmtDelta(v, unit, dp=2){
+  if(v==null||!Number.isFinite(v)) return '—';
+  const sign = v>0 ? '+' : v<0 ? '\u2212' : '';
+  return `${sign}${Math.abs(v).toFixed(dp)} ${unit}`;
+}
+
+// Bar with its data end rounded and its baseline end square.
+function barPath(x,w,y0,y){
+  const r=Math.min(4,w/2,Math.abs(y-y0));
+  const up=y<y0, e=up?y+r:y-r;
+  return `M${x.toFixed(2)} ${y0.toFixed(2)} L${x.toFixed(2)} ${e.toFixed(2)} Q${x.toFixed(2)} ${y.toFixed(2)} ${(x+r).toFixed(2)} ${y.toFixed(2)} `
+       + `L${(x+w-r).toFixed(2)} ${y.toFixed(2)} Q${(x+w).toFixed(2)} ${y.toFixed(2)} ${(x+w).toFixed(2)} ${e.toFixed(2)} `
+       + `L${(x+w).toFixed(2)} ${y0.toFixed(2)} Z`;
+}
+
+// Selective direct labels: every bar while they still fit, otherwise only the
+// largest rise and the largest fall. A number on all 180 bars is unreadable.
+function labelIndexes(values, n){
+  if(n<=24) return values.map((_,i)=>i);
+  let hi=0, lo=0;
+  values.forEach((v,i)=>{ if(v>values[hi])hi=i; if(v<values[lo])lo=i; });
+  return [...new Set([hi,lo])];
+}
+
+function deltaGeometry(count){
+  const W=760,H=200,L=55,R=16,T=16,B=40;
+  const PW=W-L-R, PH=H-T-B;
+  const slot = count>1 ? PW/(count-1) : PW;
+  return {W,H,L,R,T,B,PW,PH,slot};
+}
+
+function drawDelta({svgId,subId,dateId,valueId,series,unit,dp=2}){
+  const svg=$(svgId), mode=controls.aggregation.value;
+  const s=filterRange(deltaSeries(aggregateSeries(series,mode)));
+  if(!s.length){
+    emptySVG(svg,'Two periods are needed to show a change',100);
+    $(subId).textContent='—';$(dateId).textContent='—';$(valueId).textContent='—';return;
+  }
+  $(subId).textContent=deltaName(mode);
+  const g=deltaGeometry(s.length), {W,H,L,R,T,B,PW,PH}=g;
+  const sc=deltaScale(s.map(p=>p.value));
+  const X=i=>L+(s.length===1?PW/2:i*PW/(s.length-1));
+  const Y=v=>T+(sc.hi-v)*PH/(sc.hi-sc.lo);
+  const y0=Y(0), bw=Math.max(1,Math.min(g.slot-2,26));
+  let h='';
+  for(let i=0;i<5;i++){
+    const y=T+i*PH/4, v=sc.hi-i*(sc.hi-sc.lo)/4;
+    h+=`<line class="grid" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/><text class="axis-text" x="${L-8}" y="${y+4}" text-anchor="end">${v.toFixed(dp===0?0:1)}</text>`;
+  }
+  s.forEach((p,i)=>{
+    const x=Math.max(L,Math.min(W-R-bw,X(i)-bw/2));
+    h+=`<path class="${p.value>=0?'bar-rise':'bar-fall'}" d="${barPath(x,bw,y0,Y(p.value))}"/>`;
+  });
+  h+=`<line class="zero-line" x1="${L}" y1="${y0.toFixed(2)}" x2="${W-R}" y2="${y0.toFixed(2)}"/>`;
+  const ticks=Math.min(5,s.length);
+  for(let j=0;j<ticks;j++){
+    const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1)), d=dateUTC(s[i].date);
+    h+=`<text class="axis-text" x="${X(i)}" y="${H-12}" text-anchor="middle">${mode==='yearly'?d.getUTCFullYear():fmtMonth.format(d)}</text>`;
+  }
+  if(controls.labels.value==='on'){
+    const vals=s.map(p=>p.value);
+    for(const i of labelIndexes(vals,s.length)){
+      const v=vals[i];
+      h+=`<text class="data-label" x="${X(i)}" y="${(v>=0?Y(v)-6:Y(v)+13).toFixed(2)}" text-anchor="middle">${v>=0?'+':'\u2212'}${Math.abs(v).toFixed(dp)}</text>`;
+    }
+  }
+  h+=`<g id="cursor"><line class="cursor-line" x1="0" y1="${T}" x2="0" y2="${H-B}"/></g>`
+   + `<rect id="hit" x="${L}" y="${T}" width="${PW}" height="${PH}" fill="transparent" tabindex="0"/>`;
+  svg.innerHTML=h;
+  const c=svg.querySelector('#cursor'), hit=svg.querySelector('#hit');
+  function pick(i){
+    i=Math.max(0,Math.min(s.length-1,i));
+    const p=s[i], x=X(i);
+    c.querySelector('line').setAttribute('x1',x);c.querySelector('line').setAttribute('x2',x);
+    $(dateId).textContent=formatPeriod(p.date,mode);
+    $(valueId).textContent=fmtDelta(p.value,unit,dp);
+    hit.dataset.i=i;
+  }
+  function move(e){const b=svg.getBoundingClientRect(),x=(e.clientX-b.left)*W/b.width;pick(Math.round((x-L)/PW*(s.length-1)));}
+  hit.addEventListener('pointermove',move);hit.addEventListener('pointerdown',move);
+  hit.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();pick(Number(hit.dataset.i||s.length-1)+(e.key==='ArrowRight'?1:-1));});
+  pick(s.length-1);
+}
+
+function drawCompositionDelta(){
+  const svg=$('compositionDeltaChart'), mode=controls.aggregation.value, lines=controls.compositionLines.value;
+  const s=filterRange(deltaComposition(aggregateComposition(dailyComposition(),mode)));
+  $('compositionDeltaLegend').innerHTML = lines==='fat' ? '<span class="fat-key">● Fat mass</span>'
+    : lines==='lean' ? '<span class="lean-key">● Lean mass</span>'
+    : '<span class="fat-key">● Fat mass</span><span class="lean-key">● Lean mass</span>';
+  if(!s.length){
+    emptySVG(svg,'Two periods are needed to show a change',100);
+    $('compositionDeltaSub').textContent='—';$('compositionDeltaDate').textContent='—';$('compositionDeltaValue').textContent='—';return;
+  }
+  $('compositionDeltaSub').textContent=deltaName(mode);
+  const g=deltaGeometry(s.length), {W,H,L,R,T,B,PW,PH}=g;
+  // Both series share ONE kg scale here - a change chart with two y-scales
+  // would make the two bars silently incomparable.
+  const vals=[];
+  for(const p of s){ if(lines!=='lean'&&p.fat!=null)vals.push(p.fat); if(lines!=='fat'&&p.lean!=null)vals.push(p.lean); }
+  const sc=deltaScale(vals);
+  const X=i=>L+(s.length===1?PW/2:i*PW/(s.length-1));
+  const Y=v=>T+(sc.hi-v)*PH/(sc.hi-sc.lo);
+  const y0=Y(0), both=lines==='both';
+  const bw=Math.max(1,Math.min(both?(g.slot-3)/2:g.slot-2,both?13:26));
+  let h='';
+  for(let i=0;i<5;i++){
+    const y=T+i*PH/4, v=sc.hi-i*(sc.hi-sc.lo)/4;
+    h+=`<line class="grid" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/><text class="axis-text" x="${L-8}" y="${y+4}" text-anchor="end">${v.toFixed(1)}</text>`;
+  }
+  h+=`<text class="axis-text" x="${L-8}" y="${T-5}" text-anchor="end">kg</text>`;
+  s.forEach((p,i)=>{
+    const cx=X(i);
+    const place=(v,cls,off)=>{
+      if(v==null||!Number.isFinite(v)) return '';
+      const x=Math.max(L,Math.min(W-R-bw,cx+off));
+      return `<path class="${cls}" d="${barPath(x,bw,y0,Y(v))}"/>`;
+    };
+    if(both){ h+=place(p.fat,'bar-fat',-bw-1.5)+place(p.lean,'bar-lean',1.5); }
+    else if(lines==='fat') h+=place(p.fat,'bar-fat',-bw/2);
+    else h+=place(p.lean,'bar-lean',-bw/2);
+  });
+  h+=`<line class="zero-line" x1="${L}" y1="${y0.toFixed(2)}" x2="${W-R}" y2="${y0.toFixed(2)}"/>`;
+  const ticks=Math.min(5,s.length);
+  for(let j=0;j<ticks;j++){
+    const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1)), d=dateUTC(s[i].date);
+    h+=`<text class="axis-text" x="${X(i)}" y="${H-12}" text-anchor="middle">${mode==='yearly'?d.getUTCFullYear():fmtMonth.format(d)}</text>`;
+  }
+  if(controls.labels.value==='on'){
+    const primary=s.map(p=>(lines==='lean'?p.lean:p.fat));
+    for(const i of labelIndexes(primary.map(v=>v??0),s.length)){
+      const v=primary[i]; if(v==null) continue;
+      h+=`<text class="data-label" x="${X(i)}" y="${(v>=0?Y(v)-6:Y(v)+13).toFixed(2)}" text-anchor="middle">${v>=0?'+':'\u2212'}${Math.abs(v).toFixed(2)}</text>`;
+    }
+  }
+  h+=`<g id="cursor"><line class="cursor-line" x1="0" y1="${T}" x2="0" y2="${H-B}"/></g>`
+   + `<rect id="hit" x="${L}" y="${T}" width="${PW}" height="${PH}" fill="transparent" tabindex="0"/>`;
+  svg.innerHTML=h;
+  const c=svg.querySelector('#cursor'), hit=svg.querySelector('#hit');
+  function pick(i){
+    i=Math.max(0,Math.min(s.length-1,i));
+    const p=s[i], x=X(i);
+    c.querySelector('line').setAttribute('x1',x);c.querySelector('line').setAttribute('x2',x);
+    $('compositionDeltaDate').textContent=formatPeriod(p.date,mode);
+    const q=[];
+    if(lines!=='lean'&&p.fat!=null) q.push(`Fat ${fmtDelta(p.fat,'kg')}`);
+    if(lines!=='fat'&&p.lean!=null) q.push(`Lean ${fmtDelta(p.lean,'kg')}`);
+    $('compositionDeltaValue').textContent=q.join(' · ')||'—';
+    hit.dataset.i=i;
+  }
+  function move(e){const b=svg.getBoundingClientRect(),x=(e.clientX-b.left)*W/b.width;pick(Math.round((x-L)/PW*(s.length-1)));}
+  hit.addEventListener('pointermove',move);hit.addEventListener('pointerdown',move);
+  hit.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();pick(Number(hit.dataset.i||s.length-1)+(e.key==='ArrowRight'?1:-1));});
+  pick(s.length-1);
 }
 
 function drawSingle({svgId,subId,dateId,valueId,series,unit}){
@@ -355,7 +555,16 @@ function renderStatus(){
   const sources=[...new Set(rawSamples.map(x=>x.source))];
   $('sourceNote').textContent=sources.length?`Sources present: ${sources.join(', ')}. For overlapping days, the dashboard prefers Fitdays, then Zepp Life, then Santé.`:'';
 }
-function render(){renderStatus();drawSingle({svgId:'weightChart',subId:'weightSub',dateId:'weightDate',valueId:'weightValue',series:dailyMetric('weight'),unit:'kg'});drawSingle({svgId:'bodyFatChart',subId:'bodyFatSub',dateId:'bodyFatDate',valueId:'bodyFatValue',series:dailyMetric('bodyFat'),unit:'%'});drawComposition();}
+function render(){
+  renderStatus();
+  const weight=dailyMetric('weight'), bodyFat=dailyMetric('bodyFat');
+  drawSingle({svgId:'weightChart',subId:'weightSub',dateId:'weightDate',valueId:'weightValue',series:weight,unit:'kg'});
+  drawDelta({svgId:'weightDeltaChart',subId:'weightDeltaSub',dateId:'weightDeltaDate',valueId:'weightDeltaValue',series:weight,unit:'kg'});
+  drawSingle({svgId:'bodyFatChart',subId:'bodyFatSub',dateId:'bodyFatDate',valueId:'bodyFatValue',series:bodyFat,unit:'%'});
+  drawDelta({svgId:'bodyFatDeltaChart',subId:'bodyFatDeltaSub',dateId:'bodyFatDeltaDate',valueId:'bodyFatDeltaValue',series:bodyFat,unit:'pp'});
+  drawComposition();
+  drawCompositionDelta();
+}
 
 async function refresh(){rawSamples=await loadRecords();render();}
 async function importJSON(file){
