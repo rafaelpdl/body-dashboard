@@ -185,8 +185,13 @@ it rather than making a second variable.
 Without these four actions the Shortcut assembles every line correctly and then throws
 them away. If the last action in your Shortcut is **End Repeat**, this part is missing.
 
-**19. Combine Text.** Search `combine`, tap **Combine Text**. Input **Lines**,
-Separator **New Lines**.
+**19. Combine Text.** Search `combine`, tap **Combine Text**. Set Separator to
+**New Lines**, then **tap the input chip and choose the `Lines` variable explicitly.**
+
+Do not accept whatever Shortcuts auto-fills here. Left alone it binds to the previous
+action's output, which after **End Repeat** is **Repeat Results** — and Repeat Results is
+not your data. See the note below; this single chip is the most common reason a working
+Shortcut suddenly produces hundreds of lines.
 
 **20. URL Encode.** Search `url encode`, tap it. Input is the **Combined Text** from #19.
 Pointing it at `Lines` instead hands it a list and encodes each line separately.
@@ -229,6 +234,26 @@ top.
 **Only weight appears, no body fat.** The second half's actions probably landed inside
 the first loop, or `Lines` was spelled differently the second time. Check the indentation
 and the variable name.
+
+**Adding a Quick Look fixes it; removing the Quick Look breaks it again.** This is the
+signature of the *Repeat Results* trap, and it is worth understanding because it explains
+a result that otherwise looks impossible.
+
+Shortcuts auto-fills each new action's input with the **previous action's output**. So a
+Quick Look inserted after the loop is not a passive observer: it becomes the previous
+action, and whatever follows silently binds to *its* output. Delete it and the next action
+re-binds to **End Repeat** instead — a different value, with no visible change to the
+action's wording.
+
+What it re-binds to is the problem. **Repeat Results** is the output of the *last action of
+every iteration*, and the last action in each of these loops is **Add to Variable**, whose
+output is the entire `Lines` variable *as it stood on that pass*. So Repeat Results is not
+30 lines — it is 30 cumulative snapshots of a growing list, and every weight line appears
+in all 30 of them.
+
+The fix is one chip: open **Combine Text** and set its input to the **Lines** variable
+explicitly. A named variable means what it says on every run; an auto-filled magic variable
+re-points itself whenever you insert or delete an action above it.
 
 **You get 900 lines instead of 30 (30 x 30).** A Text action that contains a *list*
 variable is emitted once per item in that list. So if one of the two **Get Details of
