@@ -211,6 +211,28 @@ top.
 the first loop, or `Lines` was spelled differently the second time. Check the indentation
 and the variable name.
 
+**You get 900 lines instead of 30 (30 x 30).** A Text action that contains a *list*
+variable is emitted once per item in that list. So if one of the two **Get Details of
+Health Sample** actions inside a loop has its input set to **Health Samples** — the whole
+list — instead of **Repeat Item**, it hands back all 30 values at once, and every pass of
+the loop writes 30 lines. Thirty passes x thirty lines = 900, pairing every date with
+every value.
+
+Which of the two is wrong is visible in the output:
+
+- the **same date** repeated with 30 different values → the *Get **Value*** action
+- the **same value** repeated with 30 different dates → the *Get **Start Date*** action
+
+Open that action and set its input to **Repeat Item**. A correct loop emits exactly one
+line per pass.
+
+The same symptom, much more rarely, comes from a second **Repeat with Each** nested inside
+the first — you would see two **End Repeat** rows one after another. Delete the inner one.
+
+If you already ran a sync with the bad lines, no cleanup is needed. Records are keyed by
+metric + exact instant + source, so re-running the corrected shortcut overwrites each
+day's wrong value with the right one.
+
 **`B|` lines carry weight numbers** (e.g. `B|2026-08-08T10:55:47-03:00|83.9` when your
 body fat is around 23 %). The second **Repeat with Each** is iterating the *first* Find
 action's samples — both are named *Health Samples*, and Shortcuts picks the wrong one by
