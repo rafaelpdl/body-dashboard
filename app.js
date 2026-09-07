@@ -366,10 +366,10 @@ function exportBackup(){
 function loadPrefs(){for(const [k,el] of Object.entries(controls)){const v=localStorage.getItem('pref-'+k);if(v&&[...el.options].some(o=>o.value===v))el.value=v;}}
 function savePref(k,el){localStorage.setItem('pref-'+k,el.value);}
 
-// Safari reuses an already-open tab when the Shortcut opens the same URL with
-// a new #sync= fragment: that is a same-document navigation, so the page is
-// NOT reloaded and only `hashchange` fires. Sync import therefore has to work
-// both at boot and on hashchange.
+// iOS browsers reuse an already-open tab when the Shortcut opens the same URL
+// with a new #sync= fragment: that is a same-document navigation, so the page
+// is NOT reloaded and only `hashchange` fires. Sync import therefore has to
+// work both at boot and on hashchange.
 async function importFromFragment(){
   const sync=parseSyncFragment();
   if(!sync.length) return 0;

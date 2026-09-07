@@ -203,7 +203,7 @@ const fragment = ['W|2001-02-09T08:00:00-03:00|100,5|Example Scale',
                   'B|2001-02-09T08:00:00-03:00|0,300|Example Scale',
                   'W|2001-02-10T08:00:00-03:00|100.6|Example Scale',
                   'B|2001-02-10T08:00:00-03:00|29.8|Example Scale'].join('\n');
-// Cold open: the Shortcut launches Safari on a page that is not already loaded.
+// Cold open: the Shortcut launches the browser on a page that is not already loaded.
 await page.goto('about:blank');
 await page.goto(`${URL_BASE}#sync=${encodeURIComponent(fragment)}`, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => rawSamples.length > 0);
@@ -216,7 +216,7 @@ check('comma decimal from the Shortcut stored as 100.5',
 check('fraction 0,300 stored as 30 %',
   await page.evaluate(() => rawSamples.some(r => r.type === 'bodyFat' && Math.abs(r.value - 30) < 1e-9)));
 
-// Warm open: Safari reuses the already-open tab, so only `hashchange` fires.
+// Warm open: the browser reuses the already-open tab, so only `hashchange` fires.
 // Re-send the same window, plus one same-instant record written differently
 // (Z instead of -03:00, extra decimal) and one genuinely new day.
 const resend = fragment

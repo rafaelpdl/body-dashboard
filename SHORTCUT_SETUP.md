@@ -6,9 +6,15 @@ Create a Shortcut named exactly:
 
 The dashboard's **Sync Health** button expects that name.
 
-The Shortcut sends the last 30 days of Body Mass and Body Fat Percentage samples to Safari. Resending old samples is intentional: the dashboard de-duplicates them, so missed days get recovered automatically.
+The Shortcut sends the last 30 days of Body Mass and Body Fat Percentage samples to the dashboard. Resending old samples is intentional: the dashboard de-duplicates them, so missed days get recovered automatically.
 
 ## Before starting
+
+**Check your default browser first.** Step 15 uses *Open URLs*, which opens the
+iPhone's **default browser**, and each iOS browser stores the dashboard's data
+separately. If you read the dashboard in Chrome, set
+**Settings → Chrome → Default Browser App → Chrome** before you start, or the Shortcut
+will quietly file every measurement into Safari instead.
 
 Have your GitHub Pages dashboard URL ready, for example:
 
@@ -98,13 +104,25 @@ Insert the URL Encoded Text magic variable immediately after `#sync=`.
 Run the Shortcut manually. It should:
 
 1. Read the Health samples.
-2. Open Safari at your dashboard.
+2. Open your default browser at the dashboard.
 3. Briefly include `#sync=...` in the URL.
 4. Import/de-duplicate the samples locally.
 5. Remove the `#sync=...` fragment from the address.
 6. Show the new latest measurement in the charts.
 
 The dashboard accepts both decimal commas and decimal points. It also accepts body-fat values represented either as a fraction (`0.185`) or percentage points (`18.5`).
+
+### If you would rather not change the default browser
+
+Instead of a plain `https://` URL in step 13, Chrome for iOS can be addressed directly
+by swapping the scheme:
+
+`googlechromes://rafaelpdl.github.io/body-dashboard/#sync=[URL Encoded Text]`
+
+`googlechromes://` is Chrome's scheme for HTTPS pages, so this opens Chrome whatever
+the default browser is. Test it once before relying on it: run the Shortcut and confirm
+the sample count on the dashboard goes up. If the fragment does not survive the scheme
+handoff, use the default-browser route above instead.
 
 ## Add the Shortcut to the Home Screen
 

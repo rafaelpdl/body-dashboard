@@ -36,7 +36,7 @@ Touch or drag anywhere on a chart to read the date and value for that point.
 
 There is no backend, no database, no analytics and no third-party JavaScript.
 
-- Measurements live in **IndexedDB in Safari on your iPhone**.
+- Measurements live in **IndexedDB in your iPhone's browser**.
 - New measurements reach the page through the URL **fragment** (`#sync=…`). Browsers
   do not send the fragment to the server, so GitHub never receives a measurement.
 - The fragment is removed from the address bar as soon as it has been imported.
@@ -45,7 +45,7 @@ There is no backend, no database, no analytics and no third-party JavaScript.
 ## Architecture
 
 ```
-Scale → Fitdays → Apple Health → Apple Shortcut → Safari dashboard → IndexedDB (iPhone)
+Scale → Fitdays → Apple Health → Apple Shortcut → browser dashboard → IndexedDB (iPhone)
 ```
 
 The Shortcut resends a rolling window (about the last 30 days) on every run. That is
@@ -53,17 +53,36 @@ deliberate: each measurement has a stable key (metric + exact instant + source),
 re-sending is idempotent — repeats update the existing record instead of adding a new
 one, and any day the sync missed is silently recovered.
 
-### Why Safari and not an installed PWA
+### One browser, one storage
 
-Open the dashboard through **the Shortcut**, not through a Home Screen web app.
-The Shortcut opens a normal URL, which lands in Safari; a Home Screen web app gets a
-*separate* storage container. If you install the page to the Home Screen, the Shortcut
-would write into Safari's storage while the installed app reads its own — the charts
-would silently stop updating. `manifest.webmanifest` therefore declares
-`"display": "browser"` on purpose.
+Measurements live in the browser's own storage, and **each browser on iOS keeps a
+completely separate store**. Whatever browser the Shortcut opens has to be the same
+browser you read the dashboard in — otherwise you end up with two half-full dashboards
+and no error message to tell you so.
 
-Put the **Shortcut** on the Home Screen instead (Shortcuts app → the shortcut's
-details → *Add to Home Screen*).
+Two ways that goes wrong:
+
+- **Chrome vs. Safari.** The Shortcuts *Open URLs* action opens the iPhone's **default
+  browser**. If you read the dashboard in Chrome, make Chrome the default:
+  **Settings → Chrome → Default Browser App → Chrome**. Otherwise the Shortcut writes
+  into Safari's storage while you are looking at Chrome.
+- **Installed web app vs. browser.** Do not use *Add to Home Screen* on the dashboard
+  page itself. An installed web app gets its own storage container, separate again from
+  the browser the Shortcut opens. `manifest.webmanifest` declares `"display": "browser"`
+  on purpose. Put the **Shortcut** on the Home Screen instead.
+
+Already put measurements in the wrong browser? Move them: open the dashboard there,
+**Data & backup → Export backup**, then open the dashboard in the browser you actually
+use and **Import JSON** that file.
+
+### A note on Chrome for iOS
+
+Every iOS browser, Chrome included, renders with WebKit, so the dashboard behaves the
+same as it does in Safari. One difference: Chrome for iOS runs in a web view where
+service workers are generally unavailable, so `sw.js` will not register and the
+dashboard's *code* is not cached for offline use — it needs a connection to load. The
+registration is wrapped in a feature check and a `try`, so nothing breaks, and **your
+measurements are local and unaffected either way**.
 
 ## Setting it up
 
@@ -80,7 +99,7 @@ Daily routine: weigh yourself → wait for Fitdays to reach Apple Health → tap
 If you have exported your Apple Health history to a JSON file, keep that file private
 (Files / iCloud Drive — **never** in this repository) and:
 
-1. Open the dashboard in Safari.
+1. Open the dashboard in the browser you use on the iPhone.
 2. Open **Data & backup**.
 3. Tap **Import JSON** and pick the file.
 
@@ -105,6 +124,12 @@ fraction (`0.185`), and re-importing the same file never multiplies records.
 **Data & backup → Export backup** writes a JSON file with every stored sample.
 Save it somewhere private, e.g. iCloud Drive. It is a plain user-initiated download —
 nothing is uploaded anywhere.
+
+Do this occasionally. iOS browser storage is not permanent: WebKit clears a site's
+script-writable storage after roughly seven consecutive days without visiting that
+site. Daily use resets the clock, but a long break, a cleared-site-data tap, or a
+device reset would empty the dashboard. Apple Health remains the source of truth, and
+a backup makes recovery a single tap.
 
 ### Restore a backup
 

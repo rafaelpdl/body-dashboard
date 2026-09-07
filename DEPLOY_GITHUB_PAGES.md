@@ -28,7 +28,7 @@ republishes automatically.
 
 ## After deploying
 
-1. Open the URL in Safari on the iPhone.
+1. Open the URL in the browser you use on the iPhone.
 2. Import your private history once — **Data & backup → Import JSON**
    (that file lives in Files/iCloud Drive and must never be committed here).
 3. Build the Shortcut with [SHORTCUT_SETUP.md](SHORTCUT_SETUP.md), pasting this
@@ -37,6 +37,6 @@ republishes automatically.
 
 ## Updating the dashboard
 
-Push to `main`. Pages republishes, and `sw.js` is network-first, so a reload in
-Safari picks up the new code. Locally stored measurements are never touched by
+Push to `main`. Pages republishes, and `sw.js` is network-first, so a reload in the
+browser picks up the new code. Locally stored measurements are never touched by
 a deployment.
