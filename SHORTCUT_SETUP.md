@@ -1,133 +1,212 @@
 # Apple Shortcut: Sync Body Dashboard
 
-Create a Shortcut named exactly:
+This Shortcut reads your last 30 days of Weight and Body Fat Percentage from Apple
+Health, packs them into the dashboard's URL fragment, and opens the dashboard. It sends
+the whole 30-day window every time on purpose: the dashboard de-duplicates, so repeats
+cost nothing and any day a sync was missed is recovered automatically.
+
+Name the Shortcut exactly:
 
 **Sync Body Dashboard**
 
-The dashboard's **Sync Health** button expects that name.
+The dashboard's **Sync Health** button launches a shortcut by that exact name. (You can
+name it anything if you only ever tap the Shortcut itself, but then that button won't
+work.)
 
-The Shortcut sends the last 30 days of Body Mass and Body Fat Percentage samples to the dashboard. Resending old samples is intentional: the dashboard de-duplicates them, so missed days get recovered automatically.
+## Before you start
 
-## Before starting
+**1. Check your default browser.** The last action, *Open URLs*, opens the iPhone's
+**default browser** — and every iOS browser keeps its own separate storage for the
+dashboard. If you read the dashboard in Chrome, set
+**Settings → Chrome → Default Browser App → Chrome** first, or this Shortcut will file
+every measurement into Safari while you look at an empty Chrome.
 
-**Check your default browser first.** Step 15 uses *Open URLs*, which opens the
-iPhone's **default browser**, and each iOS browser stores the dashboard's data
-separately. If you read the dashboard in Chrome, set
-**Settings → Chrome → Default Browser App → Chrome** before you start, or the Shortcut
-will quietly file every measurement into Safari instead.
-
-Have your GitHub Pages dashboard URL ready, for example:
+**2. Have your dashboard URL ready:**
 
 `https://rafaelpdl.github.io/body-dashboard/`
 
-When Shortcuts first asks for Health access, permit only the health categories required by this Shortcut.
+**3. The one thing that trips everyone up.** Shortcuts inserts a new action *directly
+below the action you last tapped* — not at the bottom. So after you build the loop, the
+next action you add lands **inside** the loop unless you first tap the **End Repeat**
+row to move the insertion point past it.
 
-## Part A — Weight samples
+If an action ends up in the wrong place, don't delete it: press and hold its drag
+handle (the ≡ on the right, or just press and hold the action) and drag it where it
+belongs.
 
-1. Add **Find Health Samples**.
-   - Type: **Body Mass** / Weight
-   - Filter: **Start Date is in the last 30 days**
-   - Sort by: **Start Date**
-   - Order: **Oldest First**
+**How to insert a variable into a text field:** tap the field, then tap the variable you
+want from the suggestion row just above the keyboard. If the one you need isn't there,
+tap the ⌥/*Select Variable* button in that row and pick it from the list.
 
-2. Add **Repeat with Each** using the Health Samples found above.
+## The finished Shortcut
 
-Inside the repeat:
+Build it in this order. Actions 3–7 sit **inside** the first Repeat; actions 10–14 sit
+**inside** the second.
 
-3. Add **Get Details of Health Sample**.
-   - Detail: **Start Date**
-   - Input: **Repeat Item**
+| # | Action | Settings |
+| --- | --- | --- |
+| 1 | Find Health Samples | Type **Weight**, Start Date **is in the last 30 days**, Unit **kg**, Sort by **Start Date**, Order **Oldest First**, Limit **off** |
+| 2 | Repeat with Each | Input: **Health Samples** (auto-filled) |
+| 3 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** |
+| 4 | ‎ ‎ Format Date | Input: the **Start Date** from #3, Date Format **ISO 8601**, Include ISO 8601 Time **on** |
+| 5 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** |
+| 6 | ‎ ‎ Text | `W` `\|` *Formatted Date* `\|` *Value* |
+| 7 | ‎ ‎ Add to Variable | Variable name **Lines** |
+| 8 | *(End Repeat)* | — |
+| 9 | Find Health Samples | Type **Body Fat Percentage**, Start Date **is in the last 30 days**, Sort by **Start Date**, Order **Oldest First** |
+| 10 | Repeat with Each | Input: **Health Samples** (the second one) |
+| 11 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** |
+| 12 | ‎ ‎ Format Date | Date Format **ISO 8601**, Include ISO 8601 Time **on** |
+| 13 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** |
+| 14 | ‎ ‎ Text | `B` `\|` *Formatted Date* `\|` *Value* |
+| 15 | ‎ ‎ Add to Variable | Variable name **Lines** (the same one) |
+| 16 | *(End Repeat)* | — |
+| 17 | Combine Text | Input **Lines**, Separator **New Lines** |
+| 18 | URL Encode | Input: the **Combined Text** |
+| 19 | Text | `https://rafaelpdl.github.io/body-dashboard/#sync=` + *URL Encoded Text* |
+| 20 | Open URLs | Input: the **Text** from #19 |
 
-4. Add **Format Date**.
-   - Input: the Start Date from step 3
-   - Date Format: **ISO 8601**
-   - Include ISO 8601 time: **On**
+The only difference between the two halves is the sample type and the `W` / `B` letter
+at the start of the line.
 
-5. Add **Get Details of Health Sample** again.
-   - Detail: **Value**
-   - Input: **Repeat Item**
+## Step by step
 
-6. Add **Get Details of Health Sample** again.
-   - Detail: **Source**
-   - Input: **Repeat Item**
+### Part A — weight
 
-7. Add a **Text** action containing exactly this structure, replacing the bracketed items with the magic variables from steps 4–6:
+**1. Find Health Samples.** Tap **Search Actions** at the bottom, type `health`, tap
+**Find Health Samples**. Set:
 
-`W|[ISO Date]|[Value]|[Source]`
+- **Type** → Weight
+- **Add Filter** → Start Date → *is in the last* → 30 days
+- **Unit** → kg
+- **Sort by** → Start Date, **Order** → Oldest First, **Limit** → off
 
-8. Add **Add to Variable** and name the variable `Lines`.
-   - Add the Text from step 7.
+**2. Repeat with Each.** Search `repeat`, tap **Repeat with Each**. It appears as
+*"Repeat with each item in Health Samples"* and Shortcuts fills the input in for you. If
+it shows something else, tap the blue variable and choose **Health Samples**.
 
-End the repeat.
+You now have a **Repeat with Each … End Repeat** pair with an empty gap between them.
+Everything in steps 3–7 goes in that gap, which is where Shortcuts will put them
+automatically as long as you keep adding actions one after another.
 
-## Part B — Body-fat samples
+**3. Get the date.** Search `get details of health`, tap **Get Details of Health
+Sample**. It should read *"Get Start Date of Repeat Item"*. If the detail isn't
+**Start Date**, tap it and change it; if the input isn't **Repeat Item**, tap it and
+pick Repeat Item.
 
-9. Add another **Find Health Samples**.
-   - Type: **Body Fat Percentage**
-   - Filter: **Start Date is in the last 30 days**
-   - Sort by: **Start Date**
-   - Order: **Oldest First**
+**4. Format the date.** Search `format date`, tap **Format Date**. Tap its input and
+choose the output of #3 (offered as *Start Date* or *Health Sample Detail*). Then tap
+**Date Format** → **ISO 8601**, and turn **Include ISO 8601 Time** on.
 
-10. Add another **Repeat with Each**.
+This step is not optional. Any other format is a localised date the dashboard cannot
+read.
 
-Inside it, repeat steps 3–8, but the Text line must begin with `B`:
+**5. Get the value.** Search `get details of health` again, tap **Get Details of Health
+Sample**, set **Detail** → **Value**, input **Repeat Item**.
 
-`B|[ISO Date]|[Value]|[Source]`
+**6. Build the line.** Search `text`, tap **Text**. In the field, type `W` then `|`, tap
+the **Formatted Date** variable, type `|`, tap the **Value** variable. It should look
+like:
 
-Add each generated line to the same `Lines` variable.
+`W|Formatted Date|Value`
 
-## Part C — Open the dashboard with the data
+**7. Collect the line.** Search `add to variable`, tap **Add to Variable**. Its input is
+already the Text from #6. Tap the variable-name field and type `Lines`.
 
-11. Add **Combine Text**.
-   - Input: `Lines`
-   - Separator: **New Lines**
+Part A is done. On screen you should see the Repeat block containing five actions.
 
-12. Add **URL Encode**.
-   - Input: the combined text.
+### Part B — body fat
 
-13. Add a **Text** action:
+**Tap the "End Repeat" row now.** This is the step that makes the rest work — it moves
+the insertion point below the loop, so the next action is added *after* it rather than
+inside it.
 
-`YOUR_DASHBOARD_URL#sync=[URL Encoded Text]`
+**9. Find Health Samples** again, this time **Type → Body Fat Percentage**, same
+30-day filter, same sorting.
 
-Example beginning:
+**10–15.** Repeat steps 2–7 exactly, with one change: in the Text action write **`B`**
+instead of `W`:
 
-`https://rafaelpdl.github.io/body-dashboard/#sync=`
+`B|Formatted Date|Value`
 
-Insert the URL Encoded Text magic variable immediately after `#sync=`.
+Add to the **same** `Lines` variable — type the same name and Shortcuts will append to
+it rather than making a second variable.
 
-14. Add **URL** using the Text from step 13.
+### Part C — open the dashboard
 
-15. Add **Open URLs**.
+**Tap the second "End Repeat" row** before adding these, so they land outside the loop.
 
-## Test
+**17. Combine Text.** Search `combine`, tap **Combine Text**. Input **Lines**,
+Separator **New Lines**.
 
-Run the Shortcut manually. It should:
+**18. URL Encode.** Search `url encode`, tap it. Input is the Combined Text.
 
-1. Read the Health samples.
-2. Open your default browser at the dashboard.
-3. Briefly include `#sync=...` in the URL.
-4. Import/de-duplicate the samples locally.
-5. Remove the `#sync=...` fragment from the address.
-6. Show the new latest measurement in the charts.
+**19. Text.** Add a **Text** action containing your dashboard URL, `#sync=`, then the
+URL Encoded Text variable — with nothing between them:
 
-The dashboard accepts both decimal commas and decimal points. It also accepts body-fat values represented either as a fraction (`0.185`) or percentage points (`18.5`).
+`https://rafaelpdl.github.io/body-dashboard/#sync=` *URL Encoded Text*
 
-### If you would rather not change the default browser
+**20. Open URLs.** Search `open url`, tap **Open URLs**. Its input is the Text from #19.
 
-Instead of a plain `https://` URL in step 13, Chrome for iOS can be addressed directly
-by swapping the scheme:
+## Test it
 
-`googlechromes://rafaelpdl.github.io/body-dashboard/#sync=[URL Encoded Text]`
+Tap ▶ at the bottom right. It should:
 
-`googlechromes://` is Chrome's scheme for HTTPS pages, so this opens Chrome whatever
-the default browser is. Test it once before relying on it: run the Shortcut and confirm
-the sample count on the dashboard goes up. If the fragment does not survive the scheme
-handoff, use the default-browser route above instead.
+1. Ask for Health access the first time — allow Weight and Body Fat Percentage.
+2. Open your browser at the dashboard.
+3. Briefly show `#sync=…` in the address bar, then drop it.
+4. Show a higher sample count in the line under the title.
+
+**The check that matters:** note the "N local samples" number before running, and
+confirm it goes up afterwards. If the charts don't change, see below.
+
+## If something goes wrong
+
+**Nothing imports / the count doesn't move.** Almost always the date format. Temporarily
+add a **Quick Look** action after #17 and run again: each line must look like
+`W|2026-09-07T08:25:16-03:00|81.2`. If the date reads like *"7 Sept 2026 at 08:25"*,
+go back to #4 and set Date Format to ISO 8601 with the time toggle on.
+
+**The count goes up but the charts are empty in your browser.** The Shortcut opened a
+*different* browser than the one you're looking at. See the default-browser note at the
+top.
+
+**Only weight appears, no body fat.** The second half's actions probably landed inside
+the first loop, or `Lines` was spelled differently the second time. Check the indentation
+and the variable name.
+
+**Nothing at all happens on the first run.** The Health permission prompt may have been
+dismissed. Delete the Shortcut's health access under
+Settings → Privacy & Security → Health → Shortcuts, then run again.
+
+### If you'd rather not change the default browser
+
+In step 19, swap the scheme to address Chrome directly:
+
+`googlechromes://rafaelpdl.github.io/body-dashboard/#sync=` *URL Encoded Text*
+
+`googlechromes://` is Chrome's scheme for HTTPS pages, so it opens Chrome whatever the
+default browser is. Test it once and confirm the sample count rises — if the fragment
+doesn't survive the scheme handoff, use the default-browser route instead.
+
+## Optional: drop the Source
+
+Earlier versions of this guide had a sixth action inside each loop reading the sample's
+**Source** and appending it as a fourth field (`W|date|value|Fitdays`). It is optional —
+the dashboard defaults the source to *Apple Health* when it is missing, and only uses it
+to choose between two apps that wrote a measurement on the same day. If you want it, add
+a **Get Details of Health Sample → Source** action before the Text action and end the
+line with `|` + *Source*.
 
 ## Add the Shortcut to the Home Screen
 
-In the Shortcuts app, open the Shortcut's details/share options and choose **Add to Home Screen**. This Shortcut icon should be your normal way to open the dashboard.
+In the Shortcuts app, open the Shortcut's share options and choose **Add to Home
+Screen**. Use that icon as your normal way in — **do not** use *Add to Home Screen* on
+the dashboard web page itself, because an installed web app gets its own storage,
+separate from the browser this Shortcut opens.
 
-Daily use becomes:
+Daily routine: **weigh yourself → wait for Fitdays to reach Apple Health → tap the
+Shortcut icon.**
 
-**weigh yourself → wait for Fitdays to update Apple Health → tap Sync Body Dashboard**
+The dashboard accepts decimal points and decimal commas, and body fat either as
+percentage points (`18.5`) or as a fraction (`0.185`).
