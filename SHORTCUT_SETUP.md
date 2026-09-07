@@ -55,34 +55,41 @@ property) you actually want.
 
 ## The finished Shortcut
 
-Build it in this order. Actions 3–7 sit **inside** the first Repeat; actions 10–14 sit
-**inside** the second.
+Actions 4–8 sit **inside** the first Repeat; actions 13–17 sit **inside** the second.
+
+Steps 2 and 11 are not decoration. Both Find actions output a variable called
+**Health Samples**, and there is no way to tell the two chips apart on screen — naming
+them makes each Repeat unambiguous, and makes a mis-wire visible instead of invisible.
 
 | # | Action | Settings |
 | --- | --- | --- |
 | 1 | Find Health Samples | Type **Weight**, Start Date **is in the last 30 days**, Unit **kg**, Sort by **Start Date**, Order **Oldest First**, Limit **off** |
-| 2 | Repeat with Each | Input: **Health Samples** (auto-filled) |
-| 3 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** ← *not* Repeat Results |
-| 4 | ‎ ‎ Format Date | Input: the **Start Date** from #3, Date Format **ISO 8601**, Include ISO 8601 Time **on** |
-| 5 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** ← *not* Repeat Results |
-| 6 | ‎ ‎ Text | `W` `\|` *Formatted Date* `\|` *Value* |
-| 7 | ‎ ‎ Add to Variable | Add the plain **Text** (not its *Name*), to variable **Lines** |
-| 8 | *(End Repeat)* | — |
-| 9 | Find Health Samples | Type **Body Fat Percentage**, Start Date **is in the last 30 days**, Sort by **Start Date**, Order **Oldest First** |
-| 10 | Repeat with Each | Input: **Health Samples** (the second one) |
-| 11 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** |
-| 12 | ‎ ‎ Format Date | Date Format **ISO 8601**, Include ISO 8601 Time **on** |
-| 13 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** |
-| 14 | ‎ ‎ Text | `B` `\|` *Formatted Date* `\|` *Value* |
-| 15 | ‎ ‎ Add to Variable | Add the plain **Text** to the same variable **Lines** |
-| 16 | *(End Repeat)* | — |
-| 17 | Combine Text | Input **Lines**, Separator **New Lines** |
-| 18 | URL Encode | Input: the **Combined Text** |
-| 19 | Text | `https://rafaelpdl.github.io/body-dashboard/#sync=` + *URL Encoded Text* |
-| 20 | Open URLs | Input: the **Text** from #19 |
+| 2 | Set Variable | Name **WeightSamples**, to **Health Samples** |
+| 3 | Repeat with Each | Input: **WeightSamples** |
+| 4 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** ← *not* Repeat Results |
+| 5 | ‎ ‎ Format Date | Input: the **Start Date** from #4, Date Format **ISO 8601**, Include ISO 8601 Time **on** |
+| 6 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** ← *not* Repeat Results |
+| 7 | ‎ ‎ Text | `W` `\|` *Formatted Date* `\|` *Value* |
+| 8 | ‎ ‎ Add to Variable | Add the plain **Text** (not its *Name*), to variable **Lines** |
+| 9 | *(End Repeat)* | — |
+| 10 | Find Health Samples | Type **Body Fat Percentage**, Unit **%**, same 30-day filter and sorting |
+| 11 | Set Variable | Name **FatSamples**, to **Health Samples** |
+| 12 | Repeat with Each | Input: **FatSamples** ← the whole point of steps 2 and 11 |
+| 13 | ‎ ‎ Get Details of Health Sample | Detail **Start Date**, Input **Repeat Item** |
+| 14 | ‎ ‎ Format Date | Date Format **ISO 8601**, Include ISO 8601 Time **on** |
+| 15 | ‎ ‎ Get Details of Health Sample | Detail **Value**, Input **Repeat Item** |
+| 16 | ‎ ‎ Text | `B` `\|` *Formatted Date* `\|` *Value* |
+| 17 | ‎ ‎ Add to Variable | Add the plain **Text** to the same variable **Lines** |
+| 18 | *(End Repeat)* | — |
+| 19 | Combine Text | Input **Lines**, Separator **New Lines** |
+| 20 | URL Encode | Input: the **Combined Text** — *not* `Lines` |
+| 21 | Text | `https://rafaelpdl.github.io/body-dashboard/#sync=` + *URL Encoded Text* |
+| 22 | Open URLs | Input: the **Text** from #21 |
 
-The only difference between the two halves is the sample type and the `W` / `B` letter
-at the start of the line.
+Actions 19–22 are easy to forget: without them the Shortcut builds the lines correctly
+and then does nothing with them. If your last action is **End Repeat**, Part C is missing.
+
+The only difference between the two halves is the sample type and the `W` / `B` letter.
 
 ## Step by step
 
@@ -96,39 +103,45 @@ at the start of the line.
 - **Unit** → kg
 - **Sort by** → Start Date, **Order** → Oldest First, **Limit** → off
 
-**2. Repeat with Each.** Search `repeat`, tap **Repeat with Each**. It appears as
-*"Repeat with each item in Health Samples"* and Shortcuts fills the input in for you. If
-it shows something else, tap the blue variable and choose **Health Samples**.
+**2. Name the samples.** Search `set variable`, tap **Set Variable**. Type
+`WeightSamples` as the name; its value is already the Health Samples from #1.
+
+This step exists because you are about to create a *second* variable also called
+*Health Samples*, and the two are indistinguishable on screen. Naming them is the only
+reliable way to keep the loops pointed at the right list.
+
+**3. Repeat with Each.** Search `repeat`, tap **Repeat with Each**, then tap its input
+chip and choose **WeightSamples**.
 
 You now have a **Repeat with Each … End Repeat** pair with an empty gap between them.
 Everything in steps 3–7 goes in that gap, which is where Shortcuts will put them
 automatically as long as you keep adding actions one after another.
 
-**3. Get the date.** Search `get details of health`, tap **Get Details of Health
+**4. Get the date.** Search `get details of health`, tap **Get Details of Health
 Sample**. It must read *"Get **Start Date** from **Repeat Item**"*.
 
 Shortcuts will very likely fill the input with **Repeat Results** instead. That is the
 wrong variable — tap the red *Repeat Results* chip and choose **Repeat Item**. Change the
 detail to **Start Date** too if it came in as something else.
 
-**4. Format the date.** Search `format date`, tap **Format Date**. Tap its input and
-choose the output of #3 (offered as *Start Date* or *Health Sample Detail*). Then tap
+**5. Format the date.** Search `format date`, tap **Format Date**. Tap its input and
+choose the output of #4 (offered as *Start Date* or *Health Sample Detail*). Then tap
 **Date Format** → **ISO 8601**, and turn **Include ISO 8601 Time** on.
 
 This step is not optional. Any other format is a localised date the dashboard cannot
 read.
 
-**5. Get the value.** Search `get details of health` again, tap **Get Details of Health
+**6. Get the value.** Search `get details of health` again, tap **Get Details of Health
 Sample**, set **Detail** → **Value**. Check the input here too — it must be
 **Repeat Item**, not *Repeat Results*.
 
-**6. Build the line.** Search `text`, tap **Text**. In the field, type `W` then `|`, tap
+**7. Build the line.** Search `text`, tap **Text**. In the field, type `W` then `|`, tap
 the **Formatted Date** variable, type `|`, tap the **Value** variable. It should look
 like:
 
 `W|Formatted Date|Value`
 
-**7. Collect the line.** Search `add to variable`, tap **Add to Variable**. Type `Lines`
+**8. Collect the line.** Search `add to variable`, tap **Add to Variable**. Type `Lines`
 as the variable name.
 
 Check the chip being added: it must be the plain **Text**. If it says **Name**, Shortcuts
@@ -147,15 +160,17 @@ inside it.
 **9. Find Health Samples** again, this time **Type → Body Fat Percentage**, same
 30-day filter, same sorting.
 
-**10. Repeat with Each — and check which Health Samples it uses.** Both Find actions
-produce a variable called **Health Samples**, and Shortcuts will happily point the second
-loop at the *first* one. Tap the chip and pick the Health Samples belonging to the **Body
-Fat Percentage** action directly above it.
+**11. Name these samples too.** Add another **Set Variable**, named `FatSamples`.
+
+**12. Repeat with Each → FatSamples.** This is where the shortcut most often goes wrong.
+Shortcuts will offer *Health Samples* and point the loop at the **first** Find action's
+output, and nothing on screen distinguishes the two. Pick **FatSamples** and the
+ambiguity is gone for good.
 
 Get this wrong and the shortcut runs perfectly while emitting `B|` lines carrying weight
 values — see the troubleshooting note below.
 
-**11–15.** Repeat steps 3–7 exactly, with one change: in the Text action write **`B`**
+**13–17.** Repeat steps 4–8 exactly, with one change: in the Text action write **`B`**
 instead of `W`:
 
 `B|Formatted Date|Value`
@@ -167,17 +182,21 @@ it rather than making a second variable.
 
 **Tap the second "End Repeat" row** before adding these, so they land outside the loop.
 
-**17. Combine Text.** Search `combine`, tap **Combine Text**. Input **Lines**,
+Without these four actions the Shortcut assembles every line correctly and then throws
+them away. If the last action in your Shortcut is **End Repeat**, this part is missing.
+
+**19. Combine Text.** Search `combine`, tap **Combine Text**. Input **Lines**,
 Separator **New Lines**.
 
-**18. URL Encode.** Search `url encode`, tap it. Input is the Combined Text.
+**20. URL Encode.** Search `url encode`, tap it. Input is the **Combined Text** from #19.
+Pointing it at `Lines` instead hands it a list and encodes each line separately.
 
-**19. Text.** Add a **Text** action containing your dashboard URL, `#sync=`, then the
+**21. Text.** Add a **Text** action containing your dashboard URL, `#sync=`, then the
 URL Encoded Text variable — with nothing between them:
 
 `https://rafaelpdl.github.io/body-dashboard/#sync=` *URL Encoded Text*
 
-**20. Open URLs.** Search `open url`, tap **Open URLs**. Its input is the Text from #19.
+**22. Open URLs.** Search `open url`, tap **Open URLs**. Its input is the Text from #21.
 
 ## Test it
 
@@ -241,6 +260,10 @@ action.
 
 Quickest confirmation: look for a `W|` line with the **same timestamp and the same
 number**. If the pair exists, the second loop is reading weight.
+
+The permanent fix is steps 2, 11 and 12 above: give each Find action's output its own
+name with **Set Variable**, and point each Repeat at that name. Two chips both reading
+*Health Samples* cannot be told apart by eye.
 
 Nothing is corrupted while this is wrong. The dashboard rejects any body-fat reading above
 80 %, so those lines are dropped on import rather than stored — you would just see weight
