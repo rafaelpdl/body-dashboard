@@ -153,30 +153,55 @@ Part A is done. On screen you should see the Repeat block containing five action
 
 ### Part B — body fat
 
-**Tap the "End Repeat" row now.** This is the step that makes the rest work — it moves
-the insertion point below the loop, so the next action is added *after* it rather than
-inside it.
+Part B is not "do Part A again". It is five actions inside a loop plus two around it,
+and the one most often left out is the last: **Add to Variable**. Without it the loop
+computes thirty perfectly good body-fat lines and throws every one of them away — the
+Shortcut still runs, still opens the dashboard, and still sends only weight. Each step
+is written out below for that reason.
 
-**9. Find Health Samples** again, this time **Type → Body Fat Percentage**, same
-30-day filter, same sorting.
+**Tap the "End Repeat" row now.** This moves the insertion point below the loop, so the
+next action is added *after* it rather than inside it.
 
-**11. Name these samples too.** Add another **Set Variable**, named `FatSamples`.
+**10. Find Health Samples.** Search `health`, tap **Find Health Samples**:
 
-**12. Repeat with Each → FatSamples.** This is where the shortcut most often goes wrong.
-Shortcuts will offer *Health Samples* and point the loop at the **first** Find action's
-output, and nothing on screen distinguishes the two. Pick **FatSamples** and the
-ambiguity is gone for good.
+- **Type** → Body Fat Percentage
+- **Add Filter** → Start Date → *is in the last* → 30 days
+- **Unit** → %
+- **Sort by** → Start Date, **Order** → Oldest First, **Limit** → off
 
-Get this wrong and the shortcut runs perfectly while emitting `B|` lines carrying weight
-values — see the troubleshooting note below.
+**11. Set Variable → `FatSamples`.** Search `set variable`, tap it, type `FatSamples`.
 
-**13–17.** Repeat steps 4–8 exactly, with one change: in the Text action write **`B`**
-instead of `W`:
+**12. Repeat with Each → FatSamples.** Search `repeat`, tap **Repeat with Each**, then
+tap its input chip and choose **FatSamples**.
+
+Shortcuts will offer *Health Samples* here and point the loop at the **first** Find
+action's output; nothing on screen distinguishes the two. Get this wrong and the
+Shortcut runs perfectly while emitting `B|` lines carrying weight values.
+
+The next four actions go **inside** this loop.
+
+**13. Get Details of Health Sample.** Detail **Start Date**, input **Repeat Item**
+(*not* Repeat Results).
+
+**14. Format Date.** Input: the Start Date from #13. Date Format **ISO 8601**,
+**Include ISO 8601 Time** on.
+
+**15. Get Details of Health Sample.** Detail **Value**, input **Repeat Item**.
+
+**16. Text.** Type `B`, then `|`, tap the **Formatted Date** variable, type `|`, tap the
+**Value** variable:
 
 `B|Formatted Date|Value`
 
-Add to the **same** `Lines` variable — type the same name and Shortcuts will append to
-it rather than making a second variable.
+**17. Add to Variable.** Search `add to variable`, tap it, and type `Lines` — the *same*
+name as step 8. Shortcuts appends to the existing variable when the name matches exactly,
+and silently creates a second one when it does not.
+
+**This step is the one to double-check.** If it is missing, or the name differs by a
+letter or a capital, the dashboard reports weight readings and no body-fat readings at
+all — everything looks like it worked.
+
+Your loop should now hold five actions, the same five as Part A.
 
 ### Part C — open the dashboard
 
@@ -204,6 +229,11 @@ URL Encoded Text variable — with nothing between them:
 **22. Open URLs.** Search `open url`, tap **Open URLs**. Its input is the Text from #21.
 
 ## Test it
+
+**Count the actions first.** A complete Shortcut has **22**, and the two loops are
+mirror images: five actions inside each, `Find` + `Set Variable` + `Repeat` before, and
+`End Repeat` after. If Part B has four actions inside its loop while Part A has five, the
+missing one is almost certainly **Add to Variable**.
 
 Tap ▶ at the bottom right. It should:
 
