@@ -231,9 +231,29 @@ go back to #4 and set Date Format to ISO 8601 with the time toggle on.
 *different* browser than the one you're looking at. See the default-browser note at the
 top.
 
-**Only weight appears, no body fat.** The second half's actions probably landed inside
-the first loop, or `Lines` was spelled differently the second time. Check the indentation
-and the variable name.
+**Only weight appears, and the dashboard says nothing was rejected.** No `B` lines
+reached it at all — which is a different fault from `B` lines carrying the wrong numbers.
+Work through these in order; a **Quick Look** placed at the right spot settles each one.
+
+1. **Are the last four actions really last?** `Combine Text`, `URL Encode`, `Text` and
+   `Open URLs` must come *after* the second `End Repeat`. If the body-fat loop ended up
+   below `Combine Text`, the payload is assembled before those lines exist and they are
+   simply never sent. This is the most common cause after a round of re-ordering, and it
+   is visible just by scrolling to the bottom of the Shortcut.
+2. **Does the second Find return anything?** Put a **Quick Look** immediately after the
+   body-fat `Find Health Samples` and run it. Empty means the query found nothing:
+   check **Settings → Privacy & Security → Health → Shortcuts** and make sure
+   **Body Fat Percentage** is allowed, then confirm the readings exist in
+   **Health → Browse → Body Measurements → Body Fat Percentage**. A denied read returns
+   an empty list silently — there is no error to see.
+3. **Does the second loop write to the same variable?** Put a **Quick Look** right after
+   the second `Add to Variable`, with `Lines` as its input. If it shows only `W` lines,
+   that Add to Variable is filling a *different* variable. Shortcuts creates a new one at
+   the slightest difference in spelling or capitalisation, and both then look correct on
+   screen. Retype the name so it matches the first loop's exactly.
+
+If instead the dashboard reports body-fat readings *rejected* as out of range, the lines
+are arriving but carry weight values — see the note above about the second Repeat.
 
 **Adding a Quick Look fixes it; removing the Quick Look breaks it again.** This is the
 signature of the *Repeat Results* trap, and it is worth understanding because it explains

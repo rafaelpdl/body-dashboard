@@ -143,7 +143,9 @@ function describeImport(res, label) {
     // A sync that brought weight but no body fat at all is also worth flagging.
     if (res.saved && !res.bodyFat && res.weight) {
       note.textContent = `${label}: ${res.weight} weight reading${res.weight===1?'':'s'} and no body-fat readings at all. `
-        + 'Check that the Shortcut\'s body-fat half is running.';
+        + 'Nothing was rejected, so no B lines reached the dashboard. Usual causes, in order: '
+        + 'Combine Text runs before the body-fat loop instead of after it; the second Add to Variable '
+        + 'writes to a different variable than Lines; or Health has not granted read access to Body Fat Percentage.';
       note.classList.remove('hidden');
       return;
     }
