@@ -110,6 +110,13 @@ check('empty state visible with no data', await page.locator('#emptyState').isVi
 check('status line reports no measurements', (await page.locator('#statusLine').textContent()).includes('No local measurements'));
 check('charts show empty message', (await page.locator('#weightChart').innerHTML()).includes('No measurements'));
 
+check('time range offers every documented window', await page.evaluate(() =>
+  [...document.getElementById('range').options].map(o => o.value).join(',')) ===
+  '7,14,30,90,183,365,1095,all');
+check('aggregation offers every documented option', await page.evaluate(() =>
+  [...document.getElementById('aggregation').options].map(o => o.value).join(',')) ===
+  'daily,r7,r14,r30,weekly,monthly,quarterly,yearly');
+
 console.log('\n3. Parser unit checks (in-page)');
 const parser = await page.evaluate(() => ({
   point: parseNumber('80.7'),
@@ -367,7 +374,7 @@ for (const mode of ['daily', 'r7', 'r14', 'r30', 'weekly', 'monthly', 'quarterly
     .every(id => document.getElementById(id).querySelector('path[d]:not([d=""])')));
   check(`charts draw a line for aggregation "${mode}"`, ok);
 }
-for (const range of ['30', '90', '183', '365', '1095', 'all']) {
+for (const range of ['7', '14', '30', '90', '183', '365', '1095', 'all']) {
   for (const mode of ['r7', 'monthly', 'quarterly', 'yearly']) {
     await page.selectOption('#range', range);
     await page.selectOption('#aggregation', mode);
@@ -618,6 +625,27 @@ check('empty state covers the change charts too', await page.evaluate(() => {
   render();
   return /Two periods/.test(msg);
 }));
+
+console.log('\n9c. Axis labels follow the visible span');
+const axisLabels = await page.evaluate(async () => {
+  const read = () => [...document.getElementById('weightChart').querySelectorAll('text.axis-text')]
+    .filter(t => t.getAttribute('text-anchor') === 'middle').map(t => t.textContent);
+  const out = {};
+  const set = async (range, agg) => {
+    controls.range.value = range; controls.aggregation.value = agg; render();
+  };
+  await set('14', 'daily'); out.short = read();
+  await set('365', 'r7');   out.long = read();
+  await set('all', 'yearly'); out.yearly = read();
+  await set('all', 'r7');
+  return out;
+});
+check('a 14-day window labels distinct days, not one repeated month',
+  new Set(axisLabels.short).size === axisLabels.short.length, JSON.stringify(axisLabels.short));
+check('a 1-year window still labels months', new Set(axisLabels.long).size > 1,
+  JSON.stringify(axisLabels.long));
+check('yearly aggregation labels bare years',
+  axisLabels.yearly.every(t => /^\d{4}$/.test(t)), JSON.stringify(axisLabels.yearly));
 
 console.log('\n10. Data value labels');
 await page.selectOption('#labels', 'off');

@@ -313,6 +313,22 @@ function filterRange(series) {
 const fmtDay = new Intl.DateTimeFormat(undefined,{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
 const fmtMonth = new Intl.DateTimeFormat(undefined,{month:'short',year:'2-digit',timeZone:'UTC'});
 const fmtLongMonth = new Intl.DateTimeFormat(undefined,{month:'long',year:'numeric',timeZone:'UTC'});
+const fmtDayShort = new Intl.DateTimeFormat(undefined,{day:'2-digit',month:'short',timeZone:'UTC'});
+
+// Five x-axis ticks. Over a short window every point falls in the same month,
+// so "Aug 26" five times says nothing - drop to day precision instead.
+function axisTicks(s, mode, X, y){
+  const spanDays = s.length>1 ? (dateUTC(s.at(-1).date)-dateUTC(s[0].date))/86400000 : 0;
+  const label = d => mode==='yearly' ? d.getUTCFullYear()
+    : spanDays<=92 ? fmtDayShort.format(d) : fmtMonth.format(d);
+  const ticks=Math.min(5,s.length);
+  let h='';
+  for(let j=0;j<ticks;j++){
+    const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1));
+    h+=`<text class="axis-text" x="${X(i)}" y="${y}" text-anchor="middle">${label(dateUTC(s[i].date))}</text>`;
+  }
+  return h;
+}
 function formatPeriod(date, mode) {
   const d=dateUTC(date);
   if(mode==='daily'||mode.startsWith('r')) return fmtDay.format(d);
@@ -441,11 +457,7 @@ function drawDelta({svgId,subId,dateId,valueId,series,unit,dp=2}){
     h+=`<path class="${p.value>=0?'bar-rise':'bar-fall'}" d="${barPath(x,bw,y0,Y(p.value))}"/>`;
   });
   h+=`<line class="zero-line" x1="${L}" y1="${y0.toFixed(2)}" x2="${W-R}" y2="${y0.toFixed(2)}"/>`;
-  const ticks=Math.min(5,s.length);
-  for(let j=0;j<ticks;j++){
-    const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1)), d=dateUTC(s[i].date);
-    h+=`<text class="axis-text" x="${X(i)}" y="${H-12}" text-anchor="middle">${mode==='yearly'?d.getUTCFullYear():fmtMonth.format(d)}</text>`;
-  }
+  h+=axisTicks(s,mode,X,H-12);
   if(controls.labels.value==='on'){
     const vals=s.map(p=>p.value);
     for(const i of labelIndexes(vals,s.length)){
@@ -510,11 +522,7 @@ function drawCompositionDelta(){
     else h+=place(p.lean,'bar-lean',-bw/2);
   });
   h+=`<line class="zero-line" x1="${L}" y1="${y0.toFixed(2)}" x2="${W-R}" y2="${y0.toFixed(2)}"/>`;
-  const ticks=Math.min(5,s.length);
-  for(let j=0;j<ticks;j++){
-    const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1)), d=dateUTC(s[i].date);
-    h+=`<text class="axis-text" x="${X(i)}" y="${H-12}" text-anchor="middle">${mode==='yearly'?d.getUTCFullYear():fmtMonth.format(d)}</text>`;
-  }
+  h+=axisTicks(s,mode,X,H-12);
   if(controls.labels.value==='on'){
     const primary=s.map(p=>(lines==='lean'?p.lean:p.fat));
     for(const i of labelIndexes(primary.map(v=>v??0),s.length)){
@@ -552,7 +560,7 @@ function drawSingle({svgId,subId,dateId,valueId,series,unit}){
   const X=i=>L+(s.length===1?PW/2:i*PW/(s.length-1)), Y=v=>T+(scale.hi-v)*PH/(scale.hi-scale.lo);
   let h='';
   for(let i=0;i<5;i++){const y=T+i*PH/4,v=scale.hi-i*(scale.hi-scale.lo)/4;h+=`<line class="grid" x1="${L}" y1="${y}" x2="${W-R}" y2="${y}"/><text class="axis-text" x="${L-8}" y="${y+4}" text-anchor="end">${v.toFixed(1)}</text>`;}
-  const ticks=Math.min(5,s.length); for(let j=0;j<ticks;j++){const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1)),d=dateUTC(s[i].date);h+=`<text class="axis-text" x="${X(i)}" y="${H-13}" text-anchor="middle">${mode==='yearly'?d.getUTCFullYear():fmtMonth.format(d)}</text>`;}
+  h+=axisTicks(s,mode,X,H-13);
   h+=`<path class="line-primary" d="${pathFor(s,X,Y)}"/>`;
   if(controls.labels.value==='on') s.forEach((p,i)=>{h+=`<text class="data-label" x="${X(i)}" y="${Y(p.value)-7}" text-anchor="middle">${p.value.toFixed(1)}</text>`;});
   h+=`<g id="cursor"><line class="cursor-line" x1="0" y1="${T}" x2="0" y2="${H-B}"/><circle class="cursor-primary" cx="0" cy="0" r="5"/></g><rect id="hit" x="${L}" y="${T}" width="${PW}" height="${PH}" fill="transparent" tabindex="0"/>`;
@@ -583,7 +591,7 @@ function drawComposition(){
   }
   if(split) h+=`<text class="axis-text fat-axis" x="${L-8}" y="${T-5}" text-anchor="end">Fat kg</text><text class="axis-text lean-axis" x="${W-R+8}" y="${T-5}">Lean kg</text>`;
   else h+=`<text class="axis-text" x="${L-8}" y="${T-5}" text-anchor="end">kg</text>`;
-  const ticks=Math.min(5,s.length); for(let j=0;j<ticks;j++){const i=Math.round(j*(s.length-1)/Math.max(1,ticks-1)),d=dateUTC(s[i].date);h+=`<text class="axis-text" x="${X(i)}" y="${H-13}" text-anchor="middle">${mode==='yearly'?d.getUTCFullYear():fmtMonth.format(d)}</text>`;}
+  h+=axisTicks(s,mode,X,H-13);
   if(lines!=='lean') h+=`<path class="line-fat" d="${pathFor(s,X,YF,'fat')}"/>`;
   if(lines!=='fat') h+=`<path class="line-lean" d="${pathFor(s,X,YL,'lean')}"/>`;
   if(controls.labels.value==='on') s.forEach((p,i)=>{if(lines!=='lean'&&p.fat!=null)h+=`<text class="data-label" x="${X(i)}" y="${YF(p.fat)-7}" text-anchor="middle">${p.fat.toFixed(1)}</text>`;if(lines!=='fat'&&p.lean!=null)h+=`<text class="data-label" x="${X(i)}" y="${YL(p.lean)+15}" text-anchor="middle">${p.lean.toFixed(1)}</text>`;});

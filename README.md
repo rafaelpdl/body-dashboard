@@ -35,7 +35,7 @@ Global controls:
 - **Aggregation** — daily · 7-day · 14-day · 30-day rolling average · weekly · monthly · quarterly · yearly.
   The 7/14/30-day options are *trailing calendar-day windows*: they average whatever
   measurements exist in the trailing period, so a missed weigh-in never blanks the line.
-- **Time range** — 30 days · 90 days · 6 months · 1 year · 3 years · all history.
+- **Time range** — 7 days · 14 days · 30 days · 90 days · 6 months · 1 year · 3 years · all history.
 - **Data values** — hide or show the numbers on the lines.
 
 The composition chart adds two controls of its own:
