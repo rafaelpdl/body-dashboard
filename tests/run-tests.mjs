@@ -240,6 +240,82 @@ check('hashchange sync also clears the fragment', await page.evaluate(() => loca
 check('status line shows the sample count', (await page.locator('#statusLine').textContent()).includes('5 local samples'));
 check('empty state hidden once data exists', !(await page.locator('#emptyState').isVisible()));
 
+console.log('\n5b. Rejected readings are reported, not silently dropped');
+const rejects = await page.evaluate(async () => {
+  const out = {};
+  const stats = {};
+  // a weight value arriving on a body-fat line - the classic mis-wired Shortcut
+  out.bodyFatTooHigh = normalizeRecord({ type: 'bodyFat', timestamp: '2001-05-05T08:00:00Z', value: 81.2 }, stats);
+  normalizeRecord({ type: 'weight', timestamp: '2001-05-05T08:00:00Z', value: 5 }, stats);
+  normalizeRecord({ type: 'weight', timestamp: 'not a date', value: 80 }, stats);
+  normalizeRecord({ type: 'steps', timestamp: '2001-05-05T08:00:00Z', value: 80 }, stats);
+  out.stats = stats;
+  const res = await saveRecords([
+    { type: 'weight',  timestamp: '2001-05-05T08:00:00-03:00', value: 80.1, source: 'Example Scale' },
+    { type: 'bodyFat', timestamp: '2001-05-05T08:00:00-03:00', value: 80.1, source: 'Example Scale' },
+    { type: 'bodyFat', timestamp: '2001-05-06T08:00:00-03:00', value: 81.9, source: 'Example Scale' }
+  ]);
+  out.res = res;
+  describeImport(res, 'Last sync');
+  const note = document.getElementById('syncNote');
+  out.noteVisible = !note.classList.contains('hidden');
+  out.noteText = note.textContent;
+  return out;
+});
+check('a body-fat value above 80 % is rejected', rejects.bodyFatTooHigh === null);
+check('rejection reasons are counted by cause',
+  rejects.stats.bodyFatOutOfRange === 1 && rejects.stats.weightOutOfRange === 1
+  && rejects.stats.unreadableDate === 1 && rejects.stats.unknownMetric === 1,
+  JSON.stringify(rejects.stats));
+check('saveRecords reports kept counts per metric',
+  rejects.res.weight === 1 && rejects.res.bodyFat === 0, JSON.stringify(rejects.res));
+check('saveRecords reports the rejected count', rejects.res.rejected === 2, String(rejects.res.rejected));
+check('a note is shown when readings are rejected', rejects.noteVisible);
+check('the note names the body-fat range problem', /body-fat reading/.test(rejects.noteText), rejects.noteText);
+check('the note points at the likely Shortcut cause',
+  /Repeat with Each/.test(rejects.noteText), rejects.noteText);
+
+const cleanNote = await page.evaluate(async () => {
+  const res = await saveRecords([
+    { type: 'weight',  timestamp: '2001-05-07T08:00:00-03:00', value: 80.2, source: 'Example Scale' },
+    { type: 'bodyFat', timestamp: '2001-05-07T08:00:00-03:00', value: 21.5, source: 'Example Scale' }
+  ]);
+  describeImport(res, 'Last sync');
+  return { hidden: document.getElementById('syncNote').classList.contains('hidden'), res };
+});
+check('a clean sync hides the note again', cleanNote.hidden, JSON.stringify(cleanNote.res));
+
+const oneSided = await page.evaluate(async () => {
+  const res = await saveRecords([
+    { type: 'weight', timestamp: '2001-05-08T08:00:00-03:00', value: 80.3, source: 'Example Scale' }
+  ]);
+  describeImport(res, 'Last sync');
+  const note = document.getElementById('syncNote');
+  return { visible: !note.classList.contains('hidden'), text: note.textContent };
+});
+check('weight-only sync with nothing rejected is still flagged',
+  oneSided.visible && /no body-fat readings/.test(oneSided.text), oneSided.text);
+// remove only what this section added, so later sections see the state they expect
+const restored = await page.evaluate(async () => {
+  const mine = [
+    { type: 'weight',  timestamp: '2001-05-05T08:00:00-03:00', value: 80.1, source: 'Example Scale' },
+    { type: 'weight',  timestamp: '2001-05-07T08:00:00-03:00', value: 80.2, source: 'Example Scale' },
+    { type: 'bodyFat', timestamp: '2001-05-07T08:00:00-03:00', value: 21.5, source: 'Example Scale' },
+    { type: 'weight',  timestamp: '2001-05-08T08:00:00-03:00', value: 80.3, source: 'Example Scale' }
+  ].map(r => normalizeRecord(r).id);
+  const db = await openDB();
+  await new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    mine.forEach(id => tx.objectStore(STORE).delete(id));
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+  db.close();
+  document.getElementById('syncNote').classList.add('hidden');
+  await refresh();
+  return rawSamples.length;
+});
+check('section cleanup leaves the earlier synced records intact', restored === 5, String(restored));
+
 console.log('\n6. Historical JSON import, dedup, export, restore, clear');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bd-'));
 const historyFile = path.join(tmp, 'synthetic_history.json');

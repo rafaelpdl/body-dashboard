@@ -69,12 +69,13 @@ function parseNumber(v) {
   return Number(s);
 }
 
-function normalizeRecord(r) {
-  if (!r) return null;
+function normalizeRecord(r, stats) {
+  const reject = (reason) => { if (stats) stats[reason] = (stats[reason] || 0) + 1; return null; };
+  if (!r) return reject('malformed');
   const type = canonicalType(r.type);
-  if (!type) return null;
+  if (!type) return reject('unknownMetric');
   let value = parseNumber(r.value ?? r.quantity);
-  if (!Number.isFinite(value)) return null;
+  if (!Number.isFinite(value)) return reject('unreadableValue');
   // Body fat expressed as a fraction (0.185) becomes percentage points (18.5).
   if (type === 'bodyFat' && value > 0 && value <= 1) value *= 100;
   // Apple Health stores quantities as 32-bit floats, so Shortcuts hands over
@@ -82,11 +83,11 @@ function normalizeRecord(r) {
   // reports and keeps exported backups readable.
   value = Math.round(value * 1000) / 1000;
   const timestamp = normalizeTimestamp(r.timestamp ?? r.date ?? r.startDate);
-  if (!timestamp) return null;
+  if (!timestamp) return reject('unreadableDate');
   const instant = Date.parse(timestamp);
-  if (!Number.isFinite(instant)) return null;
-  if (type === 'weight' && (value < 20 || value > 400)) return null;
-  if (type === 'bodyFat' && (value <= 0 || value > 80)) return null;
+  if (!Number.isFinite(instant)) return reject('unreadableDate');
+  if (type === 'weight' && (value < 20 || value > 400)) return reject('weightOutOfRange');
+  if (type === 'bodyFat' && (value <= 0 || value > 80)) return reject('bodyFatOutOfRange');
   const out = {
     type, timestamp, instant,
     localDate: timestamp.slice(0,10),
@@ -98,8 +99,16 @@ function normalizeRecord(r) {
 }
 
 async function saveRecords(records) {
-  const valid = records.map(normalizeRecord).filter(Boolean);
-  if (!valid.length) return 0;
+  const reasons = {};
+  const valid = [];
+  const kept = { weight: 0, bodyFat: 0 };
+  for (const r of records) {
+    const n = normalizeRecord(r, reasons);
+    if (n) { valid.push(n); kept[n.type]++; }
+  }
+  const rejected = Object.values(reasons).reduce((a, b) => a + b, 0);
+  const result = { saved: valid.length, weight: kept.weight, bodyFat: kept.bodyFat, rejected, reasons };
+  if (!valid.length) return result;
   const db = await openDB();
   await new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
@@ -110,7 +119,42 @@ async function saveRecords(records) {
   });
   db.close();
   try { if (navigator.storage?.persist) await navigator.storage.persist(); } catch (_) {}
-  return valid.length;
+  return result;
+}
+
+// A reading that is silently discarded is the worst kind of bug: the sync looks
+// like it worked and one chart quietly stops moving. Say what was dropped.
+const REJECTION_TEXT = {
+  bodyFatOutOfRange: r => `${r} body-fat reading${r===1?'':'s'} outside 0–80 % were ignored. `
+    + 'If your weight chart is updating and this one is not, the Shortcut is very likely sending '
+    + 'weight values on its B lines — check that the second "Repeat with Each" uses the body-fat samples.',
+  weightOutOfRange: r => `${r} weight reading${r===1?'':'s'} outside 20–400 kg were ignored.`,
+  unreadableDate: r => `${r} reading${r===1?'':'s'} had a date the dashboard could not read. `
+    + 'The Shortcut\'s Format Date action must use ISO 8601 with the time included.',
+  unreadableValue: r => `${r} reading${r===1?'':'s'} had an unreadable value.`,
+  unknownMetric: r => `${r} line${r===1?'':'s'} were neither weight nor body fat.`,
+  malformed: r => `${r} entr${r===1?'y was':'ies were'} malformed.`
+};
+
+function describeImport(res, label) {
+  const note = $('syncNote');
+  if (!note) return;
+  if (!res.rejected) {
+    // A sync that brought weight but no body fat at all is also worth flagging.
+    if (res.saved && !res.bodyFat && res.weight) {
+      note.textContent = `${label}: ${res.weight} weight reading${res.weight===1?'':'s'} and no body-fat readings at all. `
+        + 'Check that the Shortcut\'s body-fat half is running.';
+      note.classList.remove('hidden');
+      return;
+    }
+    note.classList.add('hidden');
+    note.textContent = '';
+    return;
+  }
+  const worst = Object.entries(res.reasons).sort((a, b) => b[1] - a[1])[0];
+  const detail = (REJECTION_TEXT[worst[0]] || (r => `${r} readings were ignored.`))(worst[1]);
+  note.textContent = `${label}: kept ${res.weight} weight and ${res.bodyFat} body-fat readings. ${detail}`;
+  note.classList.remove('hidden');
 }
 
 async function loadRecords() {
@@ -570,7 +614,8 @@ async function refresh(){rawSamples=await loadRecords();render();}
 async function importJSON(file){
   const text=await file.text(); const payload=JSON.parse(text); const records=Array.isArray(payload)?payload:(payload?.records||payload?.samples||payload?.data);
   if(!Array.isArray(records)) throw new Error('This JSON does not contain a records array.');
-  const n=await saveRecords(records);localStorage.setItem('body-dashboard-last-sync',new Date().toISOString());await refresh();return n;
+  const res=await saveRecords(records);localStorage.setItem('body-dashboard-last-sync',new Date().toISOString());
+  describeImport(res,'Imported file');await refresh();return res;
 }
 function exportBackup(){
   const payload={format:'body-dashboard-health-samples-v1',exportedAt:new Date().toISOString(),records:rawSamples.map(({id,instant,localDate,...r})=>r)};
@@ -586,10 +631,11 @@ function savePref(k,el){localStorage.setItem('pref-'+k,el.value);}
 async function importFromFragment(){
   const sync=parseSyncFragment();
   if(!sync.length) return 0;
-  const n=await saveRecords(sync);
+  const res=await saveRecords(sync);
   localStorage.setItem('body-dashboard-last-sync',new Date().toISOString());
+  describeImport(res,'Last sync');
   stripFragment();
-  return n;
+  return res.saved;
 }
 
 async function boot(){
@@ -600,7 +646,10 @@ async function boot(){
   for(const [k,el] of Object.entries(controls)) el.addEventListener('change',()=>{savePref(k,el);render();});
   $('syncBtn').addEventListener('click',()=>{location.href=`shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}`;});
   const file=$('importFile'); $('importBtn').addEventListener('click',()=>file.click()); $('emptyImportBtn').addEventListener('click',()=>file.click());
-  file.addEventListener('change',async()=>{if(!file.files?.[0])return;try{const n=await importJSON(file.files[0]);alert(`Imported/updated ${n} samples.`);}catch(e){alert(`Import failed: ${e.message}`);}finally{file.value='';}});
+  file.addEventListener('change',async()=>{if(!file.files?.[0])return;try{const res=await importJSON(file.files[0]);
+      alert(res.rejected
+        ? `Imported ${res.saved} samples (${res.weight} weight, ${res.bodyFat} body fat).\n\n${res.rejected} were ignored — see the note on the dashboard.`
+        : `Imported/updated ${res.saved} samples (${res.weight} weight, ${res.bodyFat} body fat).`);}catch(e){alert(`Import failed: ${e.message}`);}finally{file.value='';}});
   $('exportBtn').addEventListener('click',exportBackup);
   $('clearBtn').addEventListener('click',async()=>{if(!confirm('Clear the dashboard’s local copy? Apple Health is not affected.'))return;if(!confirm('Confirm again: delete all locally stored dashboard measurements?'))return;await clearRecords();await refresh();});
   if('serviceWorker' in navigator){try{await navigator.serviceWorker.register('./sw.js');}catch(_){} }

@@ -134,6 +134,15 @@ The values above are synthetic examples. The importer accepts decimal points and
 Brazilian decimal commas (`70,5`), body fat as percentage points (`18.5`) or as a
 fraction (`0.185`), and re-importing the same file never multiplies records.
 
+### When a sync looks wrong
+
+A reading the dashboard cannot trust is never stored: weight has to fall between
+20 and 400 kg and body fat between 0 and 80 %. Rather than dropping those silently,
+the dashboard shows a note under the header saying how many readings it kept per
+metric, how many it ignored and why — including the case where the sync brings weight
+but no body fat at all. If one chart updates and another does not, that note says
+which of the two is arriving.
+
 ### Export a backup
 
 **Data & backup → Export backup** writes a JSON file with every stored sample.
